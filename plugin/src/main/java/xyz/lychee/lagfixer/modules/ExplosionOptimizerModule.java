@@ -1,9 +1,11 @@
 package xyz.lychee.lagfixer.modules;
 
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,24 +14,23 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 
 import java.util.EnumMap;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 public class ExplosionOptimizerModule extends AbstractModule implements Listener {
     private final EnumMap<EntityType, Float> yieldLimitPerEntity = new EnumMap<>(EntityType.class);
-    private final Map<String, Location> recentExplosions = new ConcurrentHashMap<>();
-    private final Map<String, Location> protectedLocations = new ConcurrentHashMap<>();
+    private final Set<String> recentExplosions = ConcurrentHashMap.newKeySet();
+    private final Set<Location> protectedLocations = ConcurrentHashMap.newKeySet();
     private boolean yieldLimitEnabled;
     private float yieldLimitDefault;
     private boolean antiChainEnabled;
@@ -37,12 +38,10 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
     private boolean preventCreeperChains;
     private boolean preventCrystalChains;
     private boolean preventBlockIgnition;
-    private double chainRadius;
     private double chainRadiusSquared;
     private int maxChainLength;
     private long chainCooldownMs;
-    private BukkitTask antiChainCleanupTask;
-
+    private ScheduledTask antiChainCleanupTask;
     private boolean managementEnabled;
     private boolean cancelBlockExplosions;
     private boolean cancelCreepers;
@@ -96,7 +95,7 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityExplode(@NotNull EntityExplodeEvent event) {
-        if (!this.canContinue(event.getLocation().getWorld()) || event.blockList().isEmpty()) return;
+        if (!this.canContinue(event.getLocation().getWorld())) return;
 
         if (managementEnabled && shouldDeactivateExplosion(event.getEntity())) {
             event.setCancelled(true);
@@ -122,9 +121,9 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockExplode(@NotNull BlockExplodeEvent event) {
-        if (!this.canContinue(event.getBlock().getWorld()) || event.blockList().isEmpty()) return;
+        if (!this.canContinue(event.getBlock().getWorld())) return;
 
-        if (managementEnabled && this.cancelBlockExplosions) {
+        if (managementEnabled && shouldDeactivateBlockExplosion()) {
             event.setCancelled(true);
             this.handleExplosionEffects(null, event.getYield(), event.getBlock().getLocation());
             return;
@@ -170,6 +169,10 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
                 || (entity instanceof Fireball && cancelFireballs);
     }
 
+    private boolean shouldDeactivateBlockExplosion() {
+        return cancelBlockExplosions;
+    }
+
     private void handleExplosionEffects(Entity tnt, float power, Location location) {
         if (location == null || location.getWorld() == null) return;
 
@@ -183,9 +186,7 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
         double radiusSquared = radius * radius;
         double invRadiusSquared = 1.0 / radiusSquared;
 
-        for (Entity entity : location.getWorld().getNearbyEntities(location, radius, radius, radius)) {
-            if (!(entity instanceof LivingEntity)) continue;
-
+        for (LivingEntity entity : location.getWorld().getNearbyLivingEntities(location, radius)) {
             Location eLoc = entity.getLocation();
             double distanceSquared = location.distanceSquared(eLoc);
 
@@ -194,7 +195,7 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
                 double damage = falloff * power * this.explosionDamageMultiplier;
 
                 if (damage > 0) {
-                    ((LivingEntity) entity).damage(damage, tnt);
+                    entity.damage(damage, tnt);
                 }
             }
 
@@ -229,43 +230,42 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
                 || (entity instanceof EnderCrystal && !preventCrystalChains))
             return false;
 
-        for (Location protectedLoc : protectedLocations.values()) {
+        for (Location protectedLoc : protectedLocations) {
             if (Objects.equals(protectedLoc.getWorld(), location.getWorld())
                     && protectedLoc.distanceSquared(location) <= chainRadiusSquared) {
                 return true;
             }
         }
 
-        return recentExplosions.containsValue(location);
+        return recentExplosions.contains(getLocationKey(location));
     }
 
     private boolean shouldPreventBlockExplosion(Location location) {
-        for (Location protectedLoc : protectedLocations.values()) {
+        for (Location protectedLoc : protectedLocations) {
             if (Objects.equals(protectedLoc.getWorld(), location.getWorld())
                     && protectedLoc.distanceSquared(location) <= chainRadiusSquared) {
                 return true;
             }
         }
-        return recentExplosions.containsValue(location);
+        return recentExplosions.contains(getLocationKey(location));
     }
 
     private void trackExplosion(Location location) {
         String locationKey = getLocationKey(location);
-        recentExplosions.put(locationKey, location);
-        SupportManager.getInstance().getFork().runLater(true, () -> recentExplosions.remove(locationKey), chainCooldownMs);
+        recentExplosions.add(locationKey);
+        Bukkit.getAsyncScheduler().runDelayed(this.getPlugin(), t -> recentExplosions.remove(locationKey), chainCooldownMs, TimeUnit.MILLISECONDS);
     }
 
     private void addProtectedArea(Location location) {
-        String locationKey = location.toString();
-        recentExplosions.put(locationKey, location);
-        SupportManager.getInstance().getFork().runLater(true, () -> protectedLocations.remove(locationKey), chainCooldownMs);
+        protectedLocations.add(location.clone());
+        Bukkit.getAsyncScheduler().runDelayed(this.getPlugin(), t -> protectedLocations.remove(location), chainCooldownMs, TimeUnit.MILLISECONDS);
     }
 
     private String getLocationKey(Location location) {
         if (location == null || location.getWorld() == null) return "unknown";
-        long x = Math.round(location.getX() / chainRadius);
-        long y = Math.round(location.getY() / chainRadius);
-        long z = Math.round(location.getZ() / chainRadius);
+        int x = (int) (Math.round(location.getX() / chainRadiusSquared) * chainRadiusSquared);
+        int y = (int) (Math.round(location.getY() / chainRadiusSquared) * chainRadiusSquared);
+        int z = (int) (Math.round(location.getZ() / chainRadiusSquared) * chainRadiusSquared);
         return location.getWorld().getName() + ":" + x + ":" + y + ":" + z;
     }
 
@@ -285,15 +285,15 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
         yieldLimitEnabled = getSection().getBoolean("yield_limit.enabled", true);
         if (yieldLimitEnabled) {
             yieldLimitDefault = (float) getSection().getDouble("yield_limit.default", 4.0d);
-            for (String entity : this.getSection().getStringList("yield_limit.per_entity")) {
-                try {
-                    String[] split = entity.split(":");
-                    yieldLimitPerEntity.put(
-                            EntityType.valueOf(split[0].toUpperCase()),
-                            Float.parseFloat(split[1])
-                    );
-                } catch (Exception e) {
-                    getPlugin().getLogger().warning("Unknown \"" + EntityType.class.getSimpleName() + "\" enum value: " + entity);
+            ConfigurationSection perEntity = getSection().getConfigurationSection("yield_limit.per_entity");
+            if (perEntity != null) {
+                for (String key : perEntity.getKeys(false)) {
+                    try {
+                        EntityType type = EntityType.valueOf(key.toUpperCase());
+                        yieldLimitPerEntity.put(type, (float) perEntity.getDouble(key));
+                    } catch (Exception e) {
+                        getPlugin().getLogger().warning("Unknown \"" + EntityType.class.getSimpleName() + "\" enum value: " + key.toUpperCase());
+                    }
                 }
             }
         }
@@ -304,7 +304,7 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
             preventCreeperChains = getSection().getBoolean("anti_chain.prevent_creeper_chains", false);
             preventCrystalChains = getSection().getBoolean("anti_chain.prevent_crystal_chains", true);
             preventBlockIgnition = getSection().getBoolean("anti_chain.prevent_block_ignition", true);
-            chainRadius = getSection().getDouble("anti_chain.chain_radius", 8.0);
+            double chainRadius = getSection().getDouble("anti_chain.chain_radius", 8.0);
             chainRadiusSquared = chainRadius * chainRadius;
             maxChainLength = getSection().getInt("anti_chain.max_chain_size", 3);
             chainCooldownMs = getSection().getLong("anti_chain.chain_cooldown", 1000L);

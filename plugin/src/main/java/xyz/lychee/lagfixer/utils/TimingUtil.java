@@ -37,7 +37,7 @@ public class TimingUtil {
     }
 
     public String toString() {
-        return this.getExecutingTime() + "ms (" + this.getExecutingNanoTime() + "ns)";
+        return "Timer executing time: " + this.getExecutingTime() + "ms (" + this.getExecutingNanoTime() + "ns)";
     }
 
     public long getStartTime() {

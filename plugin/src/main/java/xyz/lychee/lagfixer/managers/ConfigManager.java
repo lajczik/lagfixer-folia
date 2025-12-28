@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -18,13 +19,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 @Getter
 public class ConfigManager extends AbstractManager implements Listener {
     @Getter
     private static ConfigManager instance;
     private TextComponent prefix;
+    private String legacyPrefix;
 
     public ConfigManager(LagFixer plugin) {
         super(plugin);
@@ -32,11 +34,20 @@ public class ConfigManager extends AbstractManager implements Listener {
     }
 
     @Override
-    public void load() throws Exception {
-        // Load LagFixer language
-        FileConfiguration lang = Language.getYaml();
-        File langFile = new File(this.getPlugin().getDataFolder(), "lang.yml");
-        this.loadConfig(lang, langFile);
+    public void load() throws IOException {
+        FileConfiguration cfg = this.getPlugin().getConfig();
+        InputStream originalCfg = this.getPlugin().getResource("config.yml");
+        if (originalCfg != null) {
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new InputStreamReader(originalCfg));
+            this.formatConfig(cfg, new File(this.getPlugin().getDataFolder(), "config.yml"), yaml);
+        }
+
+        YamlConfiguration lang = Language.getYaml();
+        InputStream originalLang = this.getPlugin().getResource("lang.yml");
+        if (originalLang != null) {
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new InputStreamReader(originalLang));
+            this.formatConfig(lang, new File(this.getPlugin().getDataFolder(), "lang.yml"), yaml);
+        }
 
         Language.getMainValues().clear();
         lang.getConfigurationSection("messages.Main").getValues(true).forEach((key, val) -> {
@@ -45,34 +56,26 @@ public class ConfigManager extends AbstractManager implements Listener {
             }
         });
 
-        // Load LagFixer config
-        FileConfiguration config = this.getPlugin().getConfig();
-        File configFile = new File(this.getPlugin().getDataFolder(), "config.yml");
-        this.loadConfig(config, configFile);
-
-        this.prefix = MessageUtils.colors(null, config.getString("main.prefix", ""))
-                .clickEvent(ClickEvent.openUrl("https://bit.ly/lagfixer-modrinth"));
-
-        if (config.getBoolean("main.prefix_hover")) {
-            TextComponent description = MessageUtils.colors(null, "&fLagFixer &e" + this.getPlugin().getDescription().getVersion() + "\n &8{*} &7Click to open plugin in modrinth!");
-            this.prefix = this.prefix.hoverEvent(HoverEvent.showText(Component.empty().append(this.prefix).append(description)));
+        this.legacyPrefix = MessageUtils.fixColors(null, this.getPlugin().getConfig().getString("main.prefix"));
+        this.prefix = Component.text(this.legacyPrefix).clickEvent(ClickEvent.openUrl("https://modrinth.com/plugin/lagfixer"));
+        if (this.getPlugin().getConfig().getBoolean("main.prefix_hover")) {
+            this.prefix = this.prefix.hoverEvent(HoverEvent.showText(Component.text(MessageUtils.fixColors(null, this.legacyPrefix + "&fLagFixer &e" + this.getPlugin().getDescription().getVersion() + "\n &8{*} &7Click to open plugin in spigotmc!"))));
         }
     }
 
-    private void loadConfig(FileConfiguration cfg, File file) {
+    private void formatConfig(FileConfiguration cfg, File file, YamlConfiguration original) {
+        YamlConfiguration fileConfig = YamlConfiguration.loadConfiguration(file);
+
+        original.getValues(true).forEach((key, value) -> {
+            Object newValue = fileConfig.get(key);
+            if (newValue != null && !(value instanceof ConfigurationSection) && !Objects.equals(newValue, value)) {
+                Object val = value.getClass().isInstance(newValue) ? newValue : value;
+                original.set(key, val);
+            }
+        });
+
         try {
-            if (file.exists()) {
-                cfg.load(file);
-            }
-            try (InputStream defConfigStream = this.getPlugin().getResource(file.getName())) {
-                if (defConfigStream != null) {
-                    YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(
-                            new InputStreamReader(defConfigStream, StandardCharsets.UTF_8)
-                    );
-                    cfg.setDefaults(defConfig);
-                }
-            }
-            cfg.options().copyDefaults(true);
+            cfg.loadFromString(original.saveToString());
             cfg.save(file);
         } catch (IOException | InvalidConfigurationException ex) {
             ex.printStackTrace();
@@ -87,4 +90,6 @@ public class ConfigManager extends AbstractManager implements Listener {
     public boolean isEnabled() {
         return true;
     }
+
 }
+

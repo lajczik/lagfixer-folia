@@ -41,8 +41,7 @@ public class WildStackerHook extends AbstractHook implements HookManager.Stacker
     public boolean isStacked(LivingEntity entity) {
         try {
             return WildStackerAPI.getStackedEntity(entity).getStackAmount() > 1;
-        }
-        catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException ex) {
             return false;
         }
     }
@@ -55,3 +54,4 @@ public class WildStackerHook extends AbstractHook implements HookManager.Stacker
     public void disable() {
     }
 }
+

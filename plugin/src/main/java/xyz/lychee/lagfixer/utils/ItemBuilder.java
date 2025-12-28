@@ -1,18 +1,17 @@
 package xyz.lychee.lagfixer.utils;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 import lombok.Getter;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import xyz.lychee.lagfixer.managers.SupportManager;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Getter
@@ -32,7 +31,17 @@ public class ItemBuilder {
     }
 
     public static ItemBuilder createSkull(String base64) {
-        return new ItemBuilder(SupportManager.getInstance().getNms().createSkull(base64));
+        ItemStack is = new ItemStack(Material.PLAYER_HEAD);
+
+        ItemMeta meta = is.getItemMeta();
+        if (meta instanceof SkullMeta skullMeta) {
+            PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
+            profile.setProperty(new ProfileProperty("textures", base64));
+            skullMeta.setPlayerProfile(profile);
+            is.setItemMeta(skullMeta);
+        }
+
+        return new ItemBuilder(is);
     }
 
     public ItemBuilder clone() {

@@ -1,5 +1,6 @@
 package xyz.lychee.lagfixer.modules;
 
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -11,17 +12,21 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerRiptideEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.FastRandom;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class AbilityLimiterModule extends AbstractModule implements Listener {
-    private final FastRandom random = new FastRandom();
     private int trident_cooldown;
     private int elytra_cooldown;
+    private double trident_speed;
+    private double elytra_speed;
     private int trident_durability;
     private int elytra_durability;
 
@@ -59,7 +64,38 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
             if ((action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK)
                     && player.isGliding()
                     && !player.hasCooldown(Material.FIREWORK_ROCKET)) {
-                SupportManager.getInstance().getFork().runLater(false, () -> player.setCooldown(Material.FIREWORK_ROCKET, this.elytra_cooldown), 50L);
+                player.setCooldown(Material.FIREWORK_ROCKET, this.elytra_cooldown);
+
+                if (firework.getAmount() > 1) firework.setAmount(firework.getAmount() - 1);
+                else player.getInventory().remove(firework);
+
+                int duration;
+                ItemMeta meta = firework.getItemMeta();
+                if (meta instanceof FireworkMeta) {
+                    switch (((FireworkMeta) meta).getPower()) {
+                        case 2:
+                            duration = 5;
+                            break;
+                        case 3:
+                            duration = 9;
+                            break;
+                        default:
+                            duration = 3;
+                            break;
+                    }
+                } else duration = 3;
+
+                AtomicInteger ai = new AtomicInteger();
+                Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), task -> {
+                    if (player.isGliding()) {
+                        player.setVelocity(player.getLocation().getDirection().normalize().multiply(this.elytra_speed + (ai.get() / 9D)));
+                        if (ai.incrementAndGet() >= duration) {
+                            task.cancel();
+                        }
+                        return;
+                    }
+                    task.cancel();
+                }, 50L, 200L, TimeUnit.MILLISECONDS);
 
                 this.damageItem(player, chestplate, this.elytra_durability);
             }
@@ -74,9 +110,10 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
 
         int duraLoss = defaultDuraLoss;
         if (meta.hasEnchant(Enchantment.DURABILITY)) {
+            FastRandom random = new FastRandom();
             float lossChance = 100F / (is.getEnchantmentLevel(Enchantment.DURABILITY) + 1);
             for (int i = 0; i < defaultDuraLoss; i++) {
-                if (this.random.nextFloat() * 100F < lossChance) {
+                if (random.nextFloat() * 100F < lossChance) {
                     duraLoss++;
                 }
             }
@@ -97,9 +134,11 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
     @Override
     public boolean loadConfig() {
         this.elytra_cooldown = this.getSection().getInt("elytra_boost.cooldown") * 20;
+        this.elytra_speed = this.getSection().getDouble("elytra_boost.speed_multiplier") * 1.5D;
         this.elytra_durability = this.getSection().getInt("elytra_boost.additional_durability_loss");
 
         this.trident_cooldown = this.getSection().getInt("trident_riptide.cooldown") * 20;
+        this.trident_speed = this.getSection().getDouble("trident_riptide.speed_multiplier") * 0.65D;
         this.trident_durability = this.getSection().getInt("trident_riptide.additional_durability_loss");
 
         return true;

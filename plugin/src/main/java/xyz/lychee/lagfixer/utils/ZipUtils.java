@@ -25,7 +25,6 @@ public final class ZipUtils {
         return ZipUtils.zipFiles(srcFiles, zipFilePath, null);
     }
 
-
     public static boolean zipFiles(Collection<String> srcFilePaths, String zipFilePath, String comment) throws IOException {
         if (srcFilePaths == null || zipFilePath == null) {
             return false;
@@ -35,9 +34,11 @@ public final class ZipUtils {
             zos = new ZipOutputStream(Files.newOutputStream(Paths.get(zipFilePath)));
             for (String srcFile : srcFilePaths) {
                 if (ZipUtils.zipFile(new File(srcFile), "", zos, comment)) continue;
-                return false;
+                boolean bl = false;
+                return bl;
             }
-            return true;
+            boolean bl = true;
+            return bl;
         } finally {
             if (zos != null) {
                 zos.finish();
@@ -60,9 +61,11 @@ public final class ZipUtils {
             zos = new ZipOutputStream(Files.newOutputStream(zipFile.toPath()));
             for (File srcFile : srcFiles) {
                 if (ZipUtils.zipFile(srcFile, "", zos, comment)) continue;
-                return false;
+                boolean bl = false;
+                return bl;
             }
-            return true;
+            boolean bl = true;
+            return bl;
         } finally {
             if (zos != null) {
                 zos.finish();

@@ -30,7 +30,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
-import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.modules.MobAiReducerModule;
 
 import java.util.*;
@@ -147,11 +146,7 @@ public class MobAiReducer extends MobAiReducerModule.NMS implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onLoad(EntitiesLoadEvent e) {
-        if (!this.getModule().canContinue(e.getWorld())) return;
-
-        if (this.getModule().isAsync()) {
-            SupportManager.getInstance().getExecutor().execute(() -> this.optimizeEntities(e.getEntities()));
-        } else {
+        if (this.getModule().canContinue(e.getWorld())) {
             this.optimizeEntities(e.getEntities());
         }
     }

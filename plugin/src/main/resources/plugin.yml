@@ -1,9 +1,8 @@
 name: LagFixer
-version: ${lagfixer_version} [build ${lagfixer_build}]
+version: ${project.version} (folia build)
 main: xyz.lychee.lagfixer.LagFixer
 author: lychee
-api-version: 1.13
-website: https://modrinth.com/plugin/lagfixer
+api-version: 1.20.1
 softdepend: [
   PlaceholderAPI,
   spark,
@@ -15,7 +14,9 @@ softdepend: [
   MythicMobs,
   StackMob
 ]
-folia-supported: false
+folia-supported: true
 
 libraries:
-  - com.github.oshi:oshi-core:6.9.1
+  - org.apache.commons:commons-lang3:3.17.0
+  - commons-io:commons-io:2.19.0
+  - com.github.oshi:oshi-core:6.8.0

@@ -1,5 +1,6 @@
 package xyz.lychee.lagfixer.modules;
 
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
@@ -19,11 +20,8 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitTask;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
-import xyz.lychee.lagfixer.objects.AbstractFork;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.ReflectionUtils;
 
@@ -40,7 +38,7 @@ public class HopperOptimizerModule extends AbstractModule implements Listener {
     private final Map<Hopper, Long> hopperLastActivity = new ConcurrentHashMap<>();
     private final Map<Hopper, Long> hopperLastTransfer = new ConcurrentHashMap<>();
     private final Map<Hopper, Integer> hopperTransferCount = new ConcurrentHashMap<>();
-    private HopperOptimizerModule.NMS hopperOptimizer;
+    private NMS hopperOptimizer;
     private boolean smartThrottling;
     private boolean chunkLimitEnabled;
     private boolean emptyHopperOptimization;
@@ -48,9 +46,9 @@ public class HopperOptimizerModule extends AbstractModule implements Listener {
     private int checkInterval;
     private int emptyHopperCheckDelay;
     private long inactiveThresholdMs;
-    private BukkitTask optimizationTask;
-    private BukkitTask cleanupTask;
-    private BukkitTask resetTask;
+    private ScheduledTask optimizationTask;
+    private ScheduledTask cleanupTask;
+    private ScheduledTask resetTask;
 
     public HopperOptimizerModule(LagFixer plugin, ModuleManager manager) {
         super(plugin, manager, Impact.HIGH, "HopperOptimizer",
@@ -65,13 +63,11 @@ public class HopperOptimizerModule extends AbstractModule implements Listener {
     }
 
     private void startOptimizationTasks() {
-        AbstractFork fork = SupportManager.getInstance().getFork();
+        optimizationTask = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> this.optimizeHoppers(), 50L, checkInterval, TimeUnit.MILLISECONDS);
 
-        optimizationTask = fork.runTimer(true, this::optimizeHoppers, 50L, checkInterval, TimeUnit.MILLISECONDS);
+        cleanupTask = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> this.cleanupInactiveHoppers(), 100L, 200L, TimeUnit.MILLISECONDS);
 
-        cleanupTask = fork.runTimer(true, this::cleanupInactiveHoppers, 100L, 200L, TimeUnit.MILLISECONDS);
-
-        resetTask = fork.runTimer(true, this::resetTransferCounters, 1L, 1L, TimeUnit.SECONDS);
+        resetTask = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> this.resetTransferCounters(), 1L, 1L, TimeUnit.SECONDS);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -156,9 +152,8 @@ public class HopperOptimizerModule extends AbstractModule implements Listener {
 
     private boolean isInventoryEmpty(Inventory inventory) {
         ItemStack[] contents = inventory.getContents();
-        for (int i = 0; i < contents.length; i++) {
-            ItemStack item = contents[i];
-            if (item != null && item.getType() != Material.AIR) {
+        for (ItemStack item : contents) {
+            if (item != null && !item.getType().isAir()) {
                 return false;
             }
         }

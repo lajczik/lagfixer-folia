@@ -8,6 +8,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPlaceEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.PlayerInventory;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
@@ -23,7 +24,7 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
     private boolean boat;
 
     public VehicleMotionReducerModule(LagFixer plugin, ModuleManager manager) {
-        super(plugin, manager, AbstractModule.Impact.LOW, "VehicleMotionReducer",
+        super(plugin, manager, Impact.LOW, "VehicleMotionReducer",
                 new String[]{
                         "Optimizes all vehicles such as Boats and Minecarts.",
                         "Removes minecarts with chests spawned in mineshafts.",
@@ -36,7 +37,7 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityPlace(EntityPlaceEvent event) {
         Entity entity = event.getEntity();
-        if (!event.isCancelled() && this.canContinue(entity.getWorld()) && entity instanceof Vehicle) {
+        if (this.canContinue(entity.getWorld()) && entity instanceof Vehicle) {
             Vehicle vehicle = (Vehicle) entity;
             boolean cancel = this.vehicleMotionReducer.optimizeVehicle(vehicle);
 
@@ -59,6 +60,17 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
         }
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onLoad(EntitiesLoadEvent e) {
+        if (this.canContinue(e.getWorld())) return;
+
+        for (Entity ent : e.getEntities()) {
+            if (this.isEnabled(ent)) {
+                this.vehicleMotionReducer.optimizeVehicle((Vehicle) ent);
+            }
+        }
+    }
+
     public boolean isEnabled(Entity ent) {
         return ent instanceof Minecart && this.minecart || ent instanceof Boat && this.boat;
     }
@@ -66,7 +78,6 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
     @Override
     public void load() {
         this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
-        this.getPlugin().getServer().getPluginManager().registerEvents(this.vehicleMotionReducer, this.getPlugin());
     }
 
     @Override
@@ -76,7 +87,6 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
         this.minecart = this.getSection().getBoolean("minecart.enabled");
         this.boat = this.getSection().getBoolean("boat.enabled");
         this.minecart_remove_chest = this.getSection().getBoolean("minecart.remove_chest");
-
         return this.vehicleMotionReducer != null;
     }
 
@@ -86,14 +96,14 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
     }
 
     @Getter
-    public static abstract class NMS implements Listener {
+    public static abstract class NMS {
         private final VehicleMotionReducerModule module;
 
         public NMS(VehicleMotionReducerModule module) {
             this.module = module;
         }
 
-        public abstract boolean optimizeVehicle(Entity vehicle);
+        public abstract boolean optimizeVehicle(Vehicle vehicle);
     }
 }
 

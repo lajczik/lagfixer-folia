@@ -3,23 +3,18 @@ package xyz.lychee.lagfixer.nms.v1_21_R3;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.vehicle.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
 
 public interface OptimizedEntities {
     class ORaft extends Raft implements OptimizedEntities {
         ORaft(Raft r) {
-            super((EntityType<? extends Raft>) r.getType(), r.level(), () -> r.getPickResult().getItem());
-
+            super((EntityType<? extends Raft>) r.getType(), r.level(), r::getDropItem);
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -31,17 +26,11 @@ public interface OptimizedEntities {
 
     class OChestRaft extends ChestRaft implements OptimizedEntities {
         OChestRaft(ChestRaft cr) {
-            super((EntityType<? extends ChestRaft>) cr.getType(), cr.level(), () -> cr.getPickResult().getItem());
-
+            super((EntityType<? extends ChestRaft>) cr.getType(), cr.level(), cr::getDropItem);
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -53,17 +42,12 @@ public interface OptimizedEntities {
 
     class OBoat extends Boat implements OptimizedEntities {
         OBoat(Boat b) {
-            super((EntityType<? extends Boat>) b.getType(), b.level(), () -> b.getPickResult().getItem());
+            super((EntityType<? extends Boat>) b.getType(), b.level(), b::getDropItem);
 
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -75,17 +59,12 @@ public interface OptimizedEntities {
 
     class OChestBoat extends ChestBoat implements OptimizedEntities {
         OChestBoat(ChestBoat cb) {
-            super((EntityType<? extends ChestBoat>) cb.getType(), cb.level(), () -> cb.getPickResult().getItem());
+            super((EntityType<? extends ChestBoat>) cb.getType(), cb.level(), cb::getDropItem);
 
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -98,16 +77,10 @@ public interface OptimizedEntities {
     class OMinecart extends Minecart implements OptimizedEntities {
         OMinecart(Minecart m) {
             super(m.getType(), m.level());
-
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -124,12 +97,7 @@ public interface OptimizedEntities {
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -146,12 +114,7 @@ public interface OptimizedEntities {
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -164,16 +127,10 @@ public interface OptimizedEntities {
     class OMinecartFurnace extends MinecartFurnace implements OptimizedEntities {
         OMinecartFurnace(MinecartFurnace mf) {
             super((EntityType<? extends MinecartFurnace>) mf.getType(), mf.level());
-
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -187,20 +144,15 @@ public interface OptimizedEntities {
         OMinecartSpawner(MinecartSpawner other) {
             super((EntityType<? extends MinecartSpawner>) other.getType(), other.level());
 
-            Optional.ofNullable(other.getSpawner().nextSpawnData)
-                    .flatMap(sd -> EntityType.by(sd.getEntityToSpawn()))
+            Optional.ofNullable(this.getSpawner().nextSpawnData)
+                    .flatMap(sd -> EntityType.by(sd.entityToSpawn()))
                     .ifPresent(type ->
                             this.getSpawner().setEntityId(type, other.level(), other.random, this.blockPosition())
                     );
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -213,16 +165,10 @@ public interface OptimizedEntities {
     class OMinecartTNT extends MinecartTNT implements OptimizedEntities {
         OMinecartTNT(MinecartTNT mt) {
             super((EntityType<? extends MinecartTNT>) mt.getType(), mt.level());
-
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith() {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 

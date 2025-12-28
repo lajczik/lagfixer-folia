@@ -8,63 +8,13 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Optional;
 
 public interface OptimizedEntities {
-
-    class OBoat extends Boat implements OptimizedEntities {
-        OBoat(Boat b) {
-            super((EntityType<Boat>) b.getType(), b.level(), () -> b.getPickResult().getItem());
-
+    class ORaft extends Raft implements OptimizedEntities {
+        ORaft(Raft r) {
+            super((EntityType<? extends Raft>) r.getType(), r.level(), r::getDropItem);
         }
 
         @Override
         public boolean canCollideWith(@NotNull Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean isPushable() {
-            return true;
-        }
-    }
-
-    class OChestBoat extends ChestBoat implements OptimizedEntities {
-        OChestBoat(ChestBoat cb) {
-            super((EntityType<ChestBoat>) cb.getType(), cb.level(), () -> cb.getPickResult().getItem());
-        }
-
-        @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean isPushable() {
-            return true;
-        }
-    }
-
-    class ORaft extends Raft implements OptimizedEntities {
-        ORaft(Raft r) {
-            super(EntityType.BAMBOO_RAFT, r.level(), () -> r.getPickResult().getItem());
-
-        }
-
-        @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
             return false;
         }
 
@@ -76,17 +26,11 @@ public interface OptimizedEntities {
 
     class OChestRaft extends ChestRaft implements OptimizedEntities {
         OChestRaft(ChestRaft cr) {
-            super(EntityType.BAMBOO_CHEST_RAFT, cr.level(), () -> cr.getPickResult().getItem());
-
+            super((EntityType<? extends ChestRaft>) cr.getType(), cr.level(), cr::getDropItem);
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -96,18 +40,47 @@ public interface OptimizedEntities {
         }
     }
 
-    class OMinecart extends Minecart implements OptimizedEntities {
-        OMinecart(Minecart m) {
-            super(EntityType.MINECART, m.level());
+    class OBoat extends Boat implements OptimizedEntities {
+        OBoat(Boat b) {
+            super((EntityType<? extends Boat>) b.getType(), b.level(), b::getDropItem);
+
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
         @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean isPushable() {
+            return true;
+        }
+    }
+
+    class OChestBoat extends ChestBoat implements OptimizedEntities {
+        OChestBoat(ChestBoat cb) {
+            super((EntityType<? extends ChestBoat>) cb.getType(), cb.level(), cb::getDropItem);
+
+        }
+
+        @Override
+        public boolean canCollideWith(@NotNull Entity entity) {
+            return false;
+        }
+
+        @Override
+        public boolean isPushable() {
+            return true;
+        }
+    }
+
+    class OMinecart extends Minecart implements OptimizedEntities {
+        OMinecart(Minecart m) {
+            super(m.getType(), m.level());
+        }
+
+        @Override
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -119,16 +92,12 @@ public interface OptimizedEntities {
 
     class OMinecartChest extends MinecartChest implements OptimizedEntities {
         OMinecartChest(MinecartChest mc) {
-            super(EntityType.CHEST_MINECART, mc.level());
+            super((EntityType<? extends MinecartChest>) mc.getType(), mc.level());
+
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -140,16 +109,12 @@ public interface OptimizedEntities {
 
     class OMinecartHopper extends MinecartHopper implements OptimizedEntities {
         OMinecartHopper(MinecartHopper mh) {
-            super(EntityType.HOPPER_MINECART, mh.level());
+            super((EntityType<? extends MinecartHopper>) mh.getType(), mh.level());
+
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -161,16 +126,11 @@ public interface OptimizedEntities {
 
     class OMinecartFurnace extends MinecartFurnace implements OptimizedEntities {
         OMinecartFurnace(MinecartFurnace mf) {
-            super(EntityType.FURNACE_MINECART, mf.level());
+            super((EntityType<? extends MinecartFurnace>) mf.getType(), mf.level());
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -182,22 +142,17 @@ public interface OptimizedEntities {
 
     class OMinecartSpawner extends MinecartSpawner implements OptimizedEntities {
         OMinecartSpawner(MinecartSpawner other) {
-            super(EntityType.SPAWNER_MINECART, other.level());
+            super((EntityType<? extends MinecartSpawner>) other.getType(), other.level());
 
-            Optional.ofNullable(other.getSpawner().nextSpawnData)
+            Optional.ofNullable(this.getSpawner().nextSpawnData)
                     .flatMap(sd -> sd.entityToSpawn().read("id", EntityType.CODEC))
                     .ifPresent(type ->
-                            this.getSpawner().setEntityId(type, other.level(), other.getRandom(), this.blockPosition())
+                            this.getSpawner().setEntityId(type, other.level(), other.random, this.blockPosition())
                     );
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 
@@ -209,16 +164,11 @@ public interface OptimizedEntities {
 
     class OMinecartTNT extends MinecartTNT implements OptimizedEntities {
         OMinecartTNT(MinecartTNT mt) {
-            super(EntityType.TNT_MINECART, mt.level());
+            super((EntityType<? extends MinecartTNT>) mt.getType(), mt.level());
         }
 
         @Override
-        public boolean canCollideWith(Entity entity) {
-            return false;
-        }
-
-        @Override
-        public boolean canBeCollidedWith(Entity entity) {
+        public boolean canCollideWith(@NotNull Entity entity) {
             return false;
         }
 

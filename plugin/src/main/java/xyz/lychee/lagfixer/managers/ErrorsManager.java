@@ -6,7 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import lombok.Data;
 import lombok.Getter;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.LogEvent;
@@ -16,7 +16,7 @@ import org.bukkit.Bukkit;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.commands.BenchmarkCommand;
 import xyz.lychee.lagfixer.objects.AbstractManager;
-import xyz.lychee.lagfixer.objects.AbstractMonitor;
+import xyz.lychee.lagfixer.objects.RegionsEntityRaport;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.IOException;
@@ -102,9 +102,6 @@ public class ErrorsManager extends AbstractManager {
         }
     }
 
-    /**
-     * Dodaje zadanie do kolejki jeśli nie ma go już w kolejce
-     */
     private void addToQueue(SendTask task) {
         for (SendTask queuedTask : sendQueue) {
             if (queuedTask.equals(task)) {
@@ -166,19 +163,16 @@ public class ErrorsManager extends AbstractManager {
 
     private JsonObject createJson() {
         UpdaterManager updater = UpdaterManager.getInstance();
-        SupportManager support = SupportManager.getInstance();
-        AbstractMonitor monitor = support.getMonitor();
+        MonitorManager monitor = MonitorManager.getInstance();
+        RegionsEntityRaport raport = SupportManager.getInstance().getRegionsReport();
         JsonObject jo = new JsonObject();
 
         jo.addProperty("bukkit", Bukkit.getName() + " " + Bukkit.getServer().getBukkitVersion());
         jo.addProperty("version", this.getPlugin().getDescription().getVersion());
         jo.addProperty("uuid", this.uuid.toString());
-        jo.addProperty("entities", support.getEntities());
-        jo.addProperty("creatures", support.getCreatures());
-        jo.addProperty("items", support.getItems());
-        jo.addProperty("projectiles", support.getProjectiles());
-        jo.addProperty("vehicles", support.getVehicles());
-        jo.addProperty("players", Bukkit.getOnlinePlayers().size());
+        jo.addProperty("entities", raport.getEntities().toString());
+        jo.addProperty("chunks", raport.getChunks().toString());
+        jo.addProperty("players", raport.getPlayers().toString());
         jo.addProperty("maxplayers", Bukkit.getMaxPlayers());
         jo.addProperty("cpuprocess", monitor.getCpuProcess());
         jo.addProperty("cpusystem", monitor.getCpuSystem());
@@ -249,8 +243,7 @@ public class ErrorsManager extends AbstractManager {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof ThrowableKey)) return false;
-            ThrowableKey that = (ThrowableKey) o;
+            if (!(o instanceof ThrowableKey that)) return false;
             return type.equals(that.type) &&
                     Objects.equals(message, that.message) &&
                     Objects.equals(causeKey, that.causeKey);

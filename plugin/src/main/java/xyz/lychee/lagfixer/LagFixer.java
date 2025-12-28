@@ -1,7 +1,6 @@
 package xyz.lychee.lagfixer;
 
 import lombok.Getter;
-import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -13,33 +12,48 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 @Getter
 public class LagFixer extends JavaPlugin {
     private static @Getter LagFixer instance;
     private final ArrayList<AbstractManager> managers = new ArrayList<>();
     private final Logger logger = new ColoredLogger();
-    private BukkitAudiences audiences;
 
-    @Override
     public void onEnable() {
         instance = this;
-        this.audiences = BukkitAudiences.create(this);
-        this.managers.clear();
+
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+        } catch (ClassNotFoundException e) {
+            IntStream.range(0, 10).forEach(i -> {
+                this.getLogger().info(
+                        """
+                                
+                                This version of the plugin is intended only for folia servers, the correct version of the plugin can be found at:
+                                 - https://modrinth.com/plugin/lagfixer/versions?l=bukkit
+                                """
+                );
+            });
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
         this.sendHeader();
+
+        this.managers.clear();
         this.loadManager(new ErrorsManager(this));
-        this.loadManager(new ConfigManager(this));
         this.loadManager(new SupportManager(this));
+        this.loadManager(new ConfigManager(this));
         this.loadManager(new HookManager(this));
+        this.loadManager(new MonitorManager(this));
         this.loadManager(new MetricsManager(this));
         this.loadManager(new UpdaterManager(this));
         this.loadManager(new ModuleManager(this));
         this.loadManager(new CommandManager(this));
         this.getLogger().info("&fRemember to leave a rating!&r &e&l★ ★ ★ ★ ★");
-        this.getLogger().info("&c❤ &fSupport us &e&nhttps://ko-fi.com/lajczik");
     }
 
-    @Override
     public void onDisable() {
         Iterator<AbstractManager> it = this.managers.iterator();
         while (it.hasNext()) {
@@ -54,24 +68,10 @@ public class LagFixer extends JavaPlugin {
             }
             it.remove();
         }
-        SupportManager.getInstance().getMonitor().stop();
-        Bukkit.getScheduler().cancelTasks(this);
-        HandlerList.unregisterAll(this);
-    }
 
-    public void sendHeader() {
-        this.getLogger().info("&fRemember to leave a rating!&r &e&l★ ★ ★ ★ ★" +
-                "\n\n\n\n\n" +
-                "\n&fLagFixer " + this.getDescription().getVersion() + " - Best Performance Solution!&r" +
-                "\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░" +
-                "\n░██╗░░░░░░█████╗░░██████╗░░░███████╗██╗██╗░░██╗███████╗██████╗░░" +
-                "\n░██║░░░░░██╔══██╗██╔════╝░░░██╔════╝██║╚██╗██╔╝██╔════╝██╔══██╗░" +
-                "\n░██║░░░░░███████║██║░░██╗░░░█████╗░░██║░╚███╔╝░█████╗░░██████╔╝░" +
-                "\n░██║░░░░░██╔══██║██║░░╚██╗░░██╔══╝░░██║░██╔██╗░██╔══╝░░██╔══██╗░" +
-                "\n░███████╗██║░░██║╚██████╔╝░░██║░░░░░██║██╔╝╚██╗███████╗██║░░██║░" +
-                "\n░╚══════╝╚═╝░░╚═╝░╚═════╝░░░╚═╝░░░░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝░" +
-                "\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░" +
-                "\n\n\n\n\n");
+        Bukkit.getAsyncScheduler().cancelTasks(this);
+        Bukkit.getGlobalRegionScheduler().cancelTasks(this);
+        HandlerList.unregisterAll(this);
     }
 
     public void loadManager(AbstractManager manager) {
@@ -87,6 +87,27 @@ public class LagFixer extends JavaPlugin {
         } catch (Exception ex) {
             this.printError(ex);
         }
+    }
+
+    public void sendHeader() {
+        this.getLogger().info("""
+                &fRemember to leave a rating!&r &e&l★ ★ ★ ★ ★
+                
+                
+                
+                
+                &fLagFixer - Best Performance Solution!&r
+                &8                                                               \s
+                &8  &e██&6╗&8      &e█████&6╗&8  &e██████&6╗&8   &e███████&6╗&e██&6╗&e██&6╗&8  &e██&6╗&e███████&6╗&e██████&6╗&8  \s
+                &8  &e██&6║&8     &e██&6╔══&e██&6╗&e██&6╔════╝&8   &e██&6╔════╝&e██&6║╚&e██&6╗&e██&6╔╝&e██&6╔════╝&e██&6╔══&e██&6╗&8 \s
+                &8  &e██&6║&8     &e███████&6║&e██&6║&8  &e██&6╗&8   &e█████&6╗&8  &e██&6║&8 &6╚&e███&6╔╝&8 &e█████&6╗&8  &e██████&6╔╝&8 \s
+                &8  &e██&6║&8     &e██&6╔══&e██&6║&e██&6║&8  &6╚&e██&6╗&8  &e██&6╔══╝&8  &e██&6║&8 &e██&6╔&e██&6╗&8 &e██&6╔══╝&8  &e██&6╔══&e██&6╗&8 \s
+                &8  &e███████&6╗&e██&6║&8  &e██&6║╚&e██████&6╔╝&8  &e██&6║&8     &e██&6║&e██&6╔╝╚&e██&6╗&e███████&6╗&e██&6║&8  &e██&6║&8 \s
+                &8                                                                 \s
+                
+                
+                
+                """);
     }
 
     public void printError(Throwable ex) {

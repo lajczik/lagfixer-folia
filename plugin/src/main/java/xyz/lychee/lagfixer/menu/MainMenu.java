@@ -1,20 +1,18 @@
 package xyz.lychee.lagfixer.menu;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.commands.MenuCommand;
 import xyz.lychee.lagfixer.managers.ModuleManager;
+import xyz.lychee.lagfixer.managers.MonitorManager;
 import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractMenu;
 import xyz.lychee.lagfixer.objects.AbstractModule;
-import xyz.lychee.lagfixer.objects.AbstractMonitor;
-import xyz.lychee.lagfixer.objects.AbstractSupportNms;
+import xyz.lychee.lagfixer.objects.RegionsEntityRaport;
 import xyz.lychee.lagfixer.utils.ItemBuilder;
 import xyz.lychee.lagfixer.utils.MessageUtils;
 
@@ -57,7 +55,7 @@ public class MainMenu extends AbstractMenu {
                 "&eClick to modify configuration!"
         );
 
-        AbstractMonitor monitor = support.getMonitor();
+        MonitorManager monitor = MonitorManager.getInstance();
         i2.setLore(
                 " &8{*} &7Tps: &e" + monitor.getTps(),
                 " &8{*} &7Mspt: &e" + monitor.getMspt(),
@@ -68,25 +66,15 @@ public class MainMenu extends AbstractMenu {
                 "&eClick to open hardware menu!"
         );
 
-        int chunks = 0, tiles = 0;
-        AbstractSupportNms nms = support.getNms();
-        for (World w : Bukkit.getWorlds()) {
-            Chunk[] loaded = w.getLoadedChunks();
-            chunks += loaded.length;
-            for (Chunk chunk : loaded) {
-                tiles += nms.getTileEntitiesCount(chunk);
-            }
-        }
-
+        RegionsEntityRaport raport = support.getRegionsReport();
         i3.setLore(
-                " &8{*} &7Chunks: &e" + chunks,
-                " &8{*} &7Entities: &e" + support.getEntities(),
-                " &8{*} &7Creatures: &e" + support.getCreatures(),
-                " &8{*} &7Items: &e" + support.getItems(),
-                " &8{*} &7Projectiles: &e" + support.getProjectiles(),
-                " &8{*} &7Vehicles: &e" + support.getVehicles(),
-                " &8{*} &7Tile entities: &e" + tiles,
-                " &8{*} &7Players: &e" + Bukkit.getOnlinePlayers().size() + "&8/&e" + Bukkit.getMaxPlayers(),
+                " &8{*} &7Chunks: &e" + raport.getChunks().toString(),
+                " &8{*} &7Entities: &e" + raport.getEntities().toString(),
+                " &8{*} &7Creatures: &e" + raport.getCreatures().toString(),
+                " &8{*} &7Items: &e" + raport.getItems().toString(),
+                " &8{*} &7Projectiles: &e" + raport.getProjectiles().toString(),
+                " &8{*} &7Vehicles: &e" + raport.getVehicles().toString(),
+                " &8{*} &7Players: &e" + raport.getPlayers().toString() + "&8/&e" + Bukkit.getMaxPlayers(),
                 "",
                 "&eClick to open cleaner menu!"
         );

@@ -1,20 +1,21 @@
 package xyz.lychee.lagfixer.commands;
 
 import org.apache.commons.lang3.stream.Streams;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Item;
-import org.bukkit.entity.Mob;
-import org.bukkit.entity.Projectile;
 import org.jetbrains.annotations.NotNull;
 import xyz.lychee.lagfixer.managers.CommandManager;
 import xyz.lychee.lagfixer.managers.ModuleManager;
 import xyz.lychee.lagfixer.modules.WorldCleanerModule;
+import xyz.lychee.lagfixer.objects.RegionsEntityRaport;
 import xyz.lychee.lagfixer.utils.MessageUtils;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 
 public class ClearCommand extends CommandManager.Subcommand {
     public ClearCommand(CommandManager commandManager) {
@@ -40,49 +41,53 @@ public class ClearCommand extends CommandManager.Subcommand {
             return true;
         }
 
-        AtomicInteger ai = new AtomicInteger();
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        RegionsEntityRaport raport = new RegionsEntityRaport();
+        LongAdder size = raport.getEntities();
 
         String type = args[0].toLowerCase();
         switch (type) {
-            case "items":
-                module.getAllowedWorldsStream()
-                        .flatMap(w -> w.getEntitiesByClass(Item.class).stream())
-                        .filter(module::clearItem)
-                        .forEach(ent -> {
-                            ent.remove();
-                            ai.incrementAndGet();
-                        });
-
-                return MessageUtils.sendMessage(true, sender, "&7Successfully removed &e" + ai.get() + " &7items.");
-            case "creatures":
-                module.getAllowedWorldsStream()
-                        .flatMap(w -> w.getEntitiesByClass(Mob.class).stream())
-                        .filter(module::clearCreature)
-                        .forEach(ent -> {
-                            ent.remove();
-                            ai.incrementAndGet();
-                        });
-
-                return MessageUtils.sendMessage(true, sender, "&7Successfully removed &e" + ai.get() + " &7creatures.");
-            case "projectiles":
-                module.getAllowedWorldsStream()
-                        .flatMap(w -> w.getEntitiesByClass(Projectile.class).stream())
-                        .filter(module::clearProjectile)
-                        .forEach(ent -> {
-                            ent.remove();
-                            ai.incrementAndGet();
-                        });
-
-                return MessageUtils.sendMessage(true, sender, "&7Successfully removed &e" + ai.get() + " &7projectiles.");
-            default:
+            case "items" -> {
+                for (World w : module.getAllowedWorlds()) {
+                    module.purgeItems(w, futures, size);
+                }
+            }
+            case "creatures" -> {
+                for (World w : module.getAllowedWorlds()) {
+                    module.purgeCreatures(w, futures, size);
+                }
+            }
+            case "projectiles" -> {
+                for (World w : module.getAllowedWorlds()) {
+                    module.purgeProjectiles(w, futures, size);
+                }
+            }
+            case "all" -> {
+                for (World w : module.getAllowedWorlds()) {
+                    module.purgeAll(w, futures, raport);
+                }
+            }
+            default -> {
                 return MessageUtils.sendMessage(true, sender, "&7Invalid clear type: &f" + type);
+            }
         }
+        ;
+
+        MessageUtils.sendMessage(true, sender, "&7Asynchronous entity removal in progress...");
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .orTimeout(5, TimeUnit.SECONDS)
+                .whenComplete((v, t) ->
+                        MessageUtils.sendMessage(true, sender, "&7Successfully removed &e" + size + " &7entities!")
+                );
+
+        return true;
     }
 
     @Override
     public List<String> tabComplete(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length == 1) {
-            return Streams.of("items", "creatures", "projectiles").filter(str -> str.startsWith(args[0])).collect(Collectors.toList());
+            return Streams.of("items", "creatures", "projectiles", "all").filter(str -> str.startsWith(args[0])).toList();
         }
         return Collections.emptyList();
     }

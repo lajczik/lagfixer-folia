@@ -1,5 +1,11 @@
 package xyz.lychee.lagfixer.modules;
 
+import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
+import com.destroystokyo.paper.event.entity.PreSpawnerSpawnEvent;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
+import lombok.Getter;
+import lombok.Setter;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.entity.*;
@@ -12,7 +18,6 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.vehicle.VehicleCreateEvent;
-import org.bukkit.scheduler.BukkitTask;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.HookManager;
 import xyz.lychee.lagfixer.managers.ModuleManager;
@@ -21,13 +26,19 @@ import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.ReflectionUtils;
 
 import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
+@Getter
+@Setter
 public class EntityLimiterModule extends AbstractModule implements Listener {
     private final EnumSet<CreatureSpawnEvent.SpawnReason> reasons = EnumSet.noneOf(CreatureSpawnEvent.SpawnReason.class);
     private final EnumSet<EntityType> whitelist = EnumSet.noneOf(EntityType.class);
-    private BukkitTask overflow_task;
+    private ScheduledTask overflow_task;
 
     private boolean ignore_models;
     private int creatures;
@@ -55,27 +66,32 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
         );
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onSpawn(CreatureSpawnEvent e) {
-        e.setCancelled(this.handleEvent(e.getLocation(), e.getSpawnReason(), e.getEntityType(), this.creatures, ent -> ent instanceof Mob));
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onPreCreatureSpawn(PreCreatureSpawnEvent e) {
+        e.setCancelled(this.handleEvent(e.getSpawnLocation(), e.getReason(), e.getType(), this.creatures, ent -> ent instanceof Mob));
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onSpawn(SpawnerSpawnEvent e) {
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onPreSpawnerSpawn(PreSpawnerSpawnEvent e) {
+        e.setCancelled(this.handleEvent(e.getSpawnLocation(), e.getReason(), e.getType(), this.creatures, ent -> ent instanceof Mob));
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onSpawnerSpawn(SpawnerSpawnEvent e) {
         e.setCancelled(this.handleEvent(e.getLocation(), CreatureSpawnEvent.SpawnReason.SPAWNER, e.getEntityType(), this.creatures, ent -> ent instanceof Mob));
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent e) {
         e.setCancelled(this.handleEvent(e.getItemDrop().getLocation(), null, e.getItemDrop().getType(), this.items, ent -> ent instanceof Item));
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onVehicle(VehicleCreateEvent e) {
         e.setCancelled(this.handleEvent(e.getVehicle().getLocation(), null, e.getVehicle().getType(), this.vehicles, ent -> ent instanceof Vehicle));
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onLaunch(ProjectileLaunchEvent e) {
         e.setCancelled(this.handleEvent(e.getEntity().getLocation(), null, e.getEntity().getType(), this.projectiles, ent -> ent instanceof Projectile));
     }
@@ -116,44 +132,50 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
             final boolean checkVehicles = this.overflow_vehicles;
             final boolean checkProjectiles = this.overflow_projectiles;
 
-            this.overflow_task = SupportManager.getInstance().getFork().runTimer(false, () -> {
-                this.getAllowedWorlds().forEach(w -> {
-                    Chunk[] chunks = w.getLoadedChunks();
+            this.overflow_task = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> {
+                this.getAllowedWorlds().forEach(world -> {
+                    HookManager.ModelContainer model = HookManager.getInstance().getModel();
 
-                    for (Chunk chunk : chunks) {
-                        Entity[] entities = chunk.getEntities();
-                        if (entities.length == 0) continue;
+                    Map<SupportManager.RegionPos, List<Chunk>> regions = SupportManager.createRegionMap(world);
+                    regions.forEach((regionPos, chunks) -> {
+                        Executor executor = task -> Bukkit.getRegionScheduler().execute(this.getPlugin(), world, regionPos.getX() << 3, regionPos.getZ() << 3, task);
+                        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                            for (Chunk chunk : chunks) {
+                                Entity[] entities = chunk.getEntities();
+                                if (entities.length == 0) continue;
 
-                        int creatures = 0, items = 0, vehicles = 0, projectiles = 0;
+                                int creatures = 0, items = 0, vehicles = 0, projectiles = 0;
 
-                        for (Entity entity : entities) {
-                            if (this.whitelist.contains(entity.getType())
-                                    || (!this.overflow_named && entity.getCustomName() != null)
-                                    || (!this.ignore_models && HookManager.getInstance().getModel().hasModel(entity))) {
-                                continue;
+                                for (Entity entity : entities) {
+                                    if (this.whitelist.contains(entity.getType())
+                                            || (!this.overflow_named && entity.customName() != null)
+                                            || (!this.ignore_models && model != null && model.hasModel(entity))) {
+                                        continue;
+                                    }
+
+                                    boolean removed = false;
+
+                                    if (entity instanceof Mob) {
+                                        if (creatures < limit_creatures) creatures++;
+                                        else if (checkCreatures) removed = true;
+                                    } else if (entity instanceof Item) {
+                                        if (items < limit_items) items++;
+                                        else if (checkItems) removed = true;
+                                    } else if (entity instanceof Vehicle) {
+                                        if (vehicles < limit_vehicles) vehicles++;
+                                        else if (checkVehicles) removed = true;
+                                    } else if (entity instanceof Projectile) {
+                                        if (projectiles < limit_projectiles) projectiles++;
+                                        else if (checkProjectiles) removed = true;
+                                    }
+
+                                    if (removed) {
+                                        entity.remove();
+                                    }
+                                }
                             }
-
-                            boolean removed = false;
-
-                            if (entity instanceof Mob) {
-                                if (creatures < limit_creatures) creatures++;
-                                else if (checkCreatures) removed = true;
-                            } else if (entity instanceof Item) {
-                                if (items < limit_items) items++;
-                                else if (checkItems) removed = true;
-                            } else if (entity instanceof Vehicle) {
-                                if (vehicles < limit_vehicles) vehicles++;
-                                else if (checkVehicles) removed = true;
-                            } else if (entity instanceof Projectile) {
-                                if (projectiles < limit_projectiles) projectiles++;
-                                else if (checkProjectiles) removed = true;
-                            }
-
-                            if (removed) {
-                                entity.remove();
-                            }
-                        }
-                    }
+                        }, executor);
+                    });
                 });
             }, this.overflow_interval, this.overflow_interval, TimeUnit.SECONDS);
         }
@@ -180,6 +202,7 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
             this.overflow_projectiles = this.projectiles > 0 && this.getSection().getBoolean("overflow_purge.types.projectiles");
             this.overflow_named = this.getSection().getBoolean("overflow_purge.types.named");
         }
+
         return true;
     }
 
@@ -191,4 +214,3 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
         }
     }
 }
-

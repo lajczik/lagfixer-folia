@@ -18,11 +18,12 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class ConsoleFilterModule extends AbstractModule {
-    private final Pattern ANSI_PATTERN = Pattern.compile("\\u001B\\[[;\\d]*[ -/]*[@-~]");
+public class ConsoleFilterModule
+        extends AbstractModule {
     private File logs;
     private FileWriter filewriter;
     private BufferedWriter bufferedwriter;
@@ -33,56 +34,46 @@ public class ConsoleFilterModule extends AbstractModule {
     private boolean errorfiltering;
     private List<Pattern> patterns;
     private final AbstractFilter filter = new AbstractFilter() {
-        public Filter.Result filter(LogEvent event) {
-            if (!ConsoleFilterModule.this.filtering
-                    || event.getLoggerName().equals("ErrorFilter")
-                    || event.getLoggerName().equals("LagFixer")) {
-                return Filter.Result.NEUTRAL;
+
+        public Result filter(LogEvent event) {
+            if (!ConsoleFilterModule.this.filtering || event.getLoggerName().equals("ErrorFilter") || event.getLoggerName().equals("LagFixer")) {
+                return Result.NEUTRAL;
             }
-
-            String rawMsg = event.getMessage().getFormattedMessage();
-            String cleanMsg = ANSI_PATTERN.matcher(rawMsg).replaceAll("");
-
-            if (errorfiltering && event.getMessage().getThrowable() != null) {
-                LogManager.getLogger("ErrorFilter").error(cleanMsg);
-                write(cleanMsg);
-                event.getMessage().getThrowable().printStackTrace(printwriter);
-                printwriter.flush();
-                return Filter.Result.DENY;
-            }
-
-            for (Pattern pat : patterns) {
-                if (pat.matcher(cleanMsg).find()) {
-                    write(cleanMsg);
-                    return Filter.Result.DENY;
+            String message = event.getMessage().getFormattedMessage();
+            if (ConsoleFilterModule.this.errorfiltering && event.getMessage().getThrowable() != null) {
+                LogManager.getLogger("ErrorFilter").error(message);
+                ConsoleFilterModule.this.write(message);
+                if (event.getMessage().getThrowable() != null) {
+                    event.getMessage().getThrowable().printStackTrace(ConsoleFilterModule.this.printwriter);
+                    ConsoleFilterModule.this.printwriter.flush();
                 }
+                return Result.DENY;
             }
-
-            return Filter.Result.NEUTRAL;
+            for (Pattern pattern : ConsoleFilterModule.this.patterns) {
+                Matcher matcher = pattern.matcher(message);
+                if (!matcher.matches() && !matcher.lookingAt()) continue;
+                ConsoleFilterModule.this.write(message);
+                return Result.DENY;
+            }
+            return Result.NEUTRAL;
         }
     };
 
     public ConsoleFilterModule(LagFixer plugin, ModuleManager manager) {
-        super(plugin, manager, AbstractModule.Impact.VISUAL_ONLY, "ConsoleFilter",
+        super(plugin, manager, Impact.VISUAL_ONLY, "ConsoleFilter",
                 new String[]{
                         "Filters console messages based on predefined rules.",
                         "Enhances clarity by selectively displaying essential messages.",
                         "Reduces clutter and improves readability in multiplayer servers.",
                         "Facilitates efficient server administration and enhances the user experience for both administrators and players."
-                },
-                "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYWNjNzg5ZjIzMDc5NGY5MGUzM2M0ZjlhZDAwNjk0YmMyYTJmZjVlOGI5YjM3NWRjMzUzMjQwMWIyODFmM2U1OCJ9fX0="
-        );
+                }, "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGViODFlZjg5MDIzNzk2NTBiYTc5ZjQ1NzIzZDZiOWM4ODgzODhhMDBmYzRlMTkyZjM0NTRmZTE5Mzg4MmVlMSJ9fX0=");
     }
 
     public void clearLogs(File directory, String extension) {
         if (this.logslimit < 1) {
             return;
         }
-        Arrays.stream(directory.listFiles())
-                .filter(f -> f.getName().endsWith(extension))
-                .sorted(Comparator.comparingLong(File::lastModified).reversed())
-                .skip(this.logslimit)
-                .forEach(File::deleteOnExit);
+        Arrays.stream(directory.listFiles()).filter(f -> f.getName().endsWith(extension)).sorted((f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified())).skip(this.logslimit).forEach(File::deleteOnExit);
     }
 
     public void write(String text) {

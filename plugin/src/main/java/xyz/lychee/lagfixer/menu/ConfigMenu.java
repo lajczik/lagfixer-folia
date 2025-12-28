@@ -1,6 +1,9 @@
 package xyz.lychee.lagfixer.menu;
 
 import lombok.Data;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.HumanEntity;
@@ -12,8 +15,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import xyz.lychee.lagfixer.LagFixer;
+import xyz.lychee.lagfixer.Language;
 import xyz.lychee.lagfixer.commands.MenuCommand;
-import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractMenu;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.MessageUtils;
@@ -27,7 +30,7 @@ public class ConfigMenu extends AbstractMenu {
     private final File configFile;
 
     public ConfigMenu(LagFixer plugin, ConfigurationSection defSection, int size, AbstractModule module) {
-        super(plugin, size, MessageUtils.fixColors(null, "&8[&e&l⚡&8] &fConfig! &8| &eLagFixer"), -1, true);
+        super(plugin, size, "&8[&e&l⚡&8] &fConfig! &8| &eLagFixer", -1, true);
         this.module = module;
         this.configFile = new File(this.getPlugin().getDataFolder(), "modules/" + module.getName() + ".yml");
 
@@ -48,27 +51,28 @@ public class ConfigMenu extends AbstractMenu {
 
             ConfigChange change = new ConfigChange(this.module, key, currentValue);
             this.itemClickEvent(slot++, () -> {
-                List<String> lore = new ArrayList<>();
-                lore.add(MessageUtils.fixColors(null, "&7Current value:"));
+                LegacyComponentSerializer serializer = Language.getSerializer();
+                List<Component> lore = new ArrayList<>();
+                lore.add(serializer.deserialize("&7Current value:"));
 
                 if (currentValue instanceof Collection) {
                     for (Object obj : (Collection<?>) currentValue) {
-                        lore.add(MessageUtils.fixColors(null, " &8{*} &e" + obj));
+                        lore.add(serializer.deserialize(" &8{*} &e" + obj));
                     }
                 } else {
-                    lore.add(MessageUtils.fixColors(null, " &8{*} &e" + currentValue));
+                    lore.add(serializer.deserialize(" &8{*} &e" + currentValue));
                 }
 
-                lore.add("");
-                lore.add(MessageUtils.fixColors(null, "&bRight click for default value!"));
-                lore.add(MessageUtils.fixColors(null, "&aLeft click to change value!"));
+                lore.add(Component.empty());
+                lore.add(serializer.deserialize("&bRight click for default value!"));
+                lore.add(serializer.deserialize("&aLeft click to change value!"));
 
                 ItemStack item = this.module.getBaseSkull().clone();
 
                 ItemMeta meta = item.getItemMeta();
                 if (meta != null) {
-                    meta.setDisplayName(MessageUtils.fixColors(null, "&f&lKey: &e&l" + key));
-                    meta.setLore(lore);
+                    meta.displayName(serializer.deserialize("&f&lKey: &e&l" + key));
+                    meta.lore(lore);
                     item.setItemMeta(meta);
                 }
 
@@ -151,7 +155,7 @@ public class ConfigMenu extends AbstractMenu {
     }
 
     private void openModuleMenu(Player player, AbstractModule module) {
-        SupportManager.getInstance().getFork().runNow(false, player.getLocation(), () -> player.openInventory(module.getMenu().getInv()));
+        Bukkit.getRegionScheduler().run(this.getPlugin(), player.getLocation(), t -> player.openInventory(module.getMenu().getInv()));
     }
 
     @EventHandler

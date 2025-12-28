@@ -2,13 +2,14 @@ package xyz.lychee.lagfixer.managers;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import lombok.Getter;
 import lombok.Setter;
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.scheduler.BukkitTask;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.objects.AbstractManager;
 import xyz.lychee.lagfixer.utils.MessageUtils;
@@ -31,10 +32,9 @@ public class UpdaterManager extends AbstractManager implements Listener {
     private final Gson gson = new Gson();
     private int compared = 0;
     private int difference = 0;
-    private int behind = -1;
     private String latestVersion = "";
     private String currentVersion = "";
-    private BukkitTask task;
+    private ScheduledTask task;
     private boolean updater;
 
     public UpdaterManager(LagFixer plugin) {
@@ -45,10 +45,10 @@ public class UpdaterManager extends AbstractManager implements Listener {
     @EventHandler
     public void onClick(PlayerJoinEvent e) {
         if (e.getPlayer().isOp() && this.compared < 0 && this.updater) {
-            SupportManager.getInstance().getFork().runLater(true, () -> {
+            Bukkit.getAsyncScheduler().runDelayed(this.getPlugin(), t -> {
                 MessageUtils.sendMessage(true, e.getPlayer(),
                         "\nPlugin needs update, latest version: &f" + this.latestVersion +
-                                "\n &8- &ehttps://modrinth.com/plugin/lagfixer/version/" + this.latestVersion +
+                                "\n &8- &ehttps://modrinth.com/plugin/lagfixer/version/" + this.latestVersion + "-folia" +
                                 "\n"
                 );
             }, 3, TimeUnit.SECONDS);
@@ -57,79 +57,51 @@ public class UpdaterManager extends AbstractManager implements Listener {
 
     @Override
     public void load() throws IOException {
-        this.updater = this.getPlugin().getConfig().getBoolean("main.updater");
+        //this.updater = this.getPlugin().getConfig().getBoolean("main.updater");
+        this.currentVersion = this.getPlugin().getDescription().getVersion().split(" ")[0].trim();
 
-        this.task = SupportManager.getInstance().getFork().runTimer(true, () -> {
+        this.task = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> {
             try {
-                this.currentVersion = this.getPlugin().getDescription().getVersion().split(" ")[0].trim();
-
                 URL url = new URL("https://api.modrinth.com/v2/project/lagfixer/version");
                 InputStreamReader reader = new InputStreamReader(url.openStream(), StandardCharsets.UTF_8);
                 Type listType = new TypeToken<ArrayList<ModrinthVersion>>() {}.getType();
                 List<ModrinthVersion> versions = gson.fromJson(reader, listType);
-                versions.removeIf(version -> version.getVersion_number().matches(".*[^0-9.].*"));
+                versions.removeIf(version -> !version.getVersion_number().contains("-folia"));
 
                 if (!versions.isEmpty()) {
                     versions.sort((v1, v2) -> this.comparator.compare(v2.getVersion_number(), v1.getVersion_number()));
 
                     ModrinthVersion latest = versions.get(0);
-                    this.latestVersion = latest.getVersion_number();
-                    this.behind = this.calculateBuildsBehind(versions);
+                    this.latestVersion = this.comparator.formatVersionNumber(latest.getVersion_number());
                 } else {
-                    this.latestVersion = this.getPlugin().getDescription().getVersion();
-                    this.behind = 0;
+                    this.latestVersion = this.currentVersion;
                 }
 
                 this.difference = this.comparator.difference(this.currentVersion, this.latestVersion);
                 this.compared = this.comparator.compare(this.currentVersion, this.latestVersion);
 
-                if ((this.difference >= 0 && this.difference < 2) || this.behind > 5) {
-                    this.updater = true;
-                }
+                this.updater = this.compared < 0;
             } catch (IOException ex) {
                 this.getPlugin().printError(ex);
             }
 
             if (this.updater && this.compared < 0) {
                 this.getPlugin().getLogger().info(
-                        String.format("\n&8∘₊✧────────────────────────────────✧₊∘" +
-                                        "\n&c&lLagFixer needs an update!" +
-                                        "\n&fVersion: &e&n%s&r -> &e&n%s&r" +
-                                        "\n&ahttps://modrinth.com/plugin/lagfixer/version/%s" +
-                                        "\n" +
-                                        "\n&6⚠ &7Updating this plugin is crucial! &6⚠" +
-                                        "\n&8∘₊✧────────────────────────────────✧₊∘",
+                        String.format("""
+                                        
+                                        &8∘₊✧────────────────────────────────✧₊∘
+                                        &c&lLagFixer needs an update!
+                                        &fVersion: &e&n%s&r -> &e&n%s&r
+                                        &ahttps://modrinth.com/plugin/lagfixer/version/%s-folia
+                                        
+                                        &6⚠ &7Updating this plugin is crucial! &6⚠
+                                        &8∘₊✧────────────────────────────────✧₊∘""",
                                 this.currentVersion, this.latestVersion, this.latestVersion
                         )
                 );
             }
         }, 1L, 30L, TimeUnit.MINUTES);
         this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
-    }
-
-    private int calculateBuildsBehind(List<ModrinthVersion> versions) {
-        if (this.currentVersion.equals(this.latestVersion)) {
-            return 0;
-        }
-
-        int currentIndex = -1;
-        int latestIndex = -1;
-
-        for (int i = 0; i < versions.size(); i++) {
-            ModrinthVersion version = versions.get(i);
-            if (version.getVersion_number().equals(this.currentVersion)) {
-                currentIndex = i;
-            }
-            if (version.getVersion_number().equals(this.latestVersion)) {
-                latestIndex = i;
-            }
-        }
-
-        if (currentIndex != -1 && latestIndex != -1) {
-            return currentIndex - latestIndex;
-        }
-
-        return -1;
     }
 
     @Override
@@ -148,8 +120,8 @@ public class UpdaterManager extends AbstractManager implements Listener {
     public static class VersionComparator implements Comparator<String> {
         @Override
         public int compare(String current, String latest) {
-            String[] parts1 = current.split("\\.");
-            String[] parts2 = latest.split("\\.");
+            String[] parts1 = this.formatVersionNumber(current).split("\\.");
+            String[] parts2 = this.formatVersionNumber(latest).split("\\.");
 
             int length = Math.max(parts1.length, parts2.length);
 
@@ -179,6 +151,10 @@ public class UpdaterManager extends AbstractManager implements Listener {
                 }
             }
             return -1;
+        }
+
+        public String formatVersionNumber(String versionNumber) {
+            return versionNumber.split("-")[0];
         }
     }
 
@@ -224,4 +200,3 @@ public class UpdaterManager extends AbstractManager implements Listener {
         public String dependency_type;
     }
 }
-

@@ -1,9 +1,9 @@
 package xyz.lychee.lagfixer.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 import xyz.lychee.lagfixer.managers.CommandManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.utils.MessageUtils;
 
 public class FreeCommand extends CommandManager.Subcommand {
@@ -19,7 +19,7 @@ public class FreeCommand extends CommandManager.Subcommand {
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String[] args) {
-        SupportManager.getInstance().getFork().runNow(true, null, () -> {
+        Bukkit.getAsyncScheduler().runNow(this.getCommandManager().getPlugin(), t -> {
             Runtime runtime = Runtime.getRuntime();
 
             long before = runtime.totalMemory() - runtime.freeMemory();

@@ -1,5 +1,6 @@
 package xyz.lychee.lagfixer.commands;
 
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -13,15 +14,13 @@ import org.jetbrains.annotations.NotNull;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.Language;
 import xyz.lychee.lagfixer.managers.CommandManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
-import xyz.lychee.lagfixer.objects.AbstractMonitor;
+import xyz.lychee.lagfixer.managers.MonitorManager;
 import xyz.lychee.lagfixer.utils.MessageUtils;
 
 import java.awt.*;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class MapCommand extends CommandManager.Subcommand {
@@ -39,8 +38,7 @@ public class MapCommand extends CommandManager.Subcommand {
                 this.mapHandler = new MapHandler(this.getCommandManager().getPlugin());
                 this.mapHandler.load();
             } catch (Throwable ignored) {}
-        }
-        else if (this.mapHandler != null) {
+        } else if (this.mapHandler != null) {
             this.mapHandler.unload();
             this.mapHandler = null;
         }
@@ -57,17 +55,20 @@ public class MapCommand extends CommandManager.Subcommand {
     public boolean execute(@NotNull org.bukkit.command.CommandSender sender, @NotNull String[] args) {
         if (this.mapHandler == null) {
             MessageUtils.sendMessage(true, sender,
-                    "&7The map is currently unavailable." +
-                            "\nYou need to add the &e&n-Djava.awt.headless=true&7 flag when starting the application to resolve the issue." +
-                            "\nThis will enable headless mode and avoid the X11 display connection problem." +
-                            "\nPlease restart the server with this flag and check if the issue persists.");
+                    """
+                            &7The map is currently unavailable.
+                            &7You need to add the &e&n-Djava.awt.headless=true&7 flag when starting the application to resolve the issue.
+                            &7This will enable headless mode and avoid the X11 display connection problem.
+                            &7Please restart the server with this flag and check if the issue persists.
+                            """
+            );
             return false;
         }
 
         if (!(sender instanceof Player)) {
             Component text = Language.getMainValue("player_only", true);
             if (text != null) {
-                LagFixer.getInstance().getAudiences().sender(sender).sendMessage(text);
+                sender.sendMessage(text);
             }
             return false;
         }
@@ -103,7 +104,7 @@ public class MapCommand extends CommandManager.Subcommand {
         private int bufferIndex;
         private int dataCount;
         private volatile boolean shouldRender = true;
-        private ScheduledFuture<?> task;
+        private ScheduledTask task;
 
         public MapHandler(LagFixer plugin) throws AWTError {
             this.plugin = plugin;
@@ -112,7 +113,8 @@ public class MapCommand extends CommandManager.Subcommand {
             FileConfiguration config = plugin.getConfig();
             MapView tempMap = null;
             if (config.isSet("main.map.id")) {
-                tempMap = Bukkit.getServer().getMap(config.getInt("main.map.id"));
+                int mapId = config.getInt("map.id");
+                tempMap = Bukkit.getServer().getMap(mapId);
             }
 
             if (tempMap == null) {
@@ -132,7 +134,7 @@ public class MapCommand extends CommandManager.Subcommand {
 
             MapMeta meta = (MapMeta) this.mapItem.getItemMeta();
             meta.setMapView(this.mapView);
-            meta.setDisplayName(MessageUtils.fixColors(null, "&e⚡ &fServer monitor! &e⚡"));
+            meta.setDisplayName("§e⚡ §fServer monitor! §e⚡");
             this.mapItem.setItemMeta(meta);
 
             this.mapView.getRenderers().clear();
@@ -142,11 +144,9 @@ public class MapCommand extends CommandManager.Subcommand {
         public void load() {
             int interval = this.plugin.getConfig().getInt("main.map.interval");
 
-            SupportManager support = SupportManager.getInstance();
-            task = support.getExecutor().scheduleWithFixedDelay(() -> {
-                AbstractMonitor monitor = support.getMonitor();
-                boolean supportMspt = support.getFork().isSupportMspt();
-                int pixelY = supportMspt ? msptToPixelY(monitor.getMspt()) : tpsToPixelY(monitor.getTps());
+            task = Bukkit.getAsyncScheduler().runAtFixedRate(this.plugin, task -> {
+                MonitorManager monitor = MonitorManager.getInstance();
+                int pixelY = msptToPixelY(monitor.getMspt());
 
                 if (this.dataCount < MAX_DATA_POINTS) {
                     this.valuesBuffer[this.dataCount++] = pixelY;
@@ -158,10 +158,7 @@ public class MapCommand extends CommandManager.Subcommand {
                 if (!this.shouldRender) return;
 
                 renderGraph();
-                renderText(supportMspt ?
-                        String.format("Mspt: %.1f Tps: %.1f", monitor.getMspt(), monitor.getTps())
-                        : String.format("Tps: %.1f, Cpu: %.1f", monitor.getTps(), monitor.getCpuProcess())
-                );
+                renderText(String.format("Mspt: %.1f Tps: %.1f", monitor.getMspt(), monitor.getTps()));
 
                 for (int i = 0; i < this.pixels.length; i++) {
                     int rgb = this.pixels[i];
@@ -244,7 +241,7 @@ public class MapCommand extends CommandManager.Subcommand {
         }
 
         public void unload() {
-            if (this.task != null) this.task.cancel(true);
+            if (this.task != null) this.task.cancel();
             this.g2d.dispose();
         }
 

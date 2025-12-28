@@ -176,4 +176,3 @@ public abstract class AbstractModule {
         }
     }
 }
-

@@ -1,5 +1,6 @@
 package xyz.lychee.lagfixer.objects;
 
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.bukkit.Bukkit;
@@ -11,9 +12,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitTask;
 import xyz.lychee.lagfixer.LagFixer;
-import xyz.lychee.lagfixer.managers.SupportManager;
+import xyz.lychee.lagfixer.Language;
 import xyz.lychee.lagfixer.utils.ItemBuilder;
 
 import java.util.HashMap;
@@ -39,18 +39,28 @@ public abstract class AbstractMenu implements Listener {
 
     private final LagFixer plugin;
     private final Inventory inv;
-    private final BukkitTask task;
+    private final ScheduledTask task;
     private final HashMap<Integer, ItemClickEvent> clicks = new HashMap<>();
     private boolean updated = false;
 
     public AbstractMenu(LagFixer plugin, int size, String title, int interval, boolean async) {
         this.plugin = plugin;
-        this.inv = Bukkit.createInventory(null, size, title);
-        this.task = interval > 0 ? SupportManager.getInstance().getFork().runTimer(async, () -> {
-            if (!this.updated || !this.inv.getViewers().isEmpty()) {
-                this.updateAll();
+        this.inv = Bukkit.createInventory(null, size, Language.getSerializer().deserialize(title));
+        if (interval > 0) {
+            if (async) {
+                this.task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, t -> {
+                    if (!this.updated || !this.inv.getViewers().isEmpty()) {
+                        this.updateAll();
+                    }
+                }, 1L, interval, TimeUnit.SECONDS);
+            } else {
+                this.task = Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> {
+                    if (!this.updated || !this.inv.getViewers().isEmpty()) {
+                        this.updateAll();
+                    }
+                }, 20L, interval * 20L);
             }
-        }, 1L, interval, TimeUnit.SECONDS) : null;
+        } else this.task = null;
     }
 
     public void updateAll() {
@@ -141,4 +151,3 @@ public abstract class AbstractMenu implements Listener {
         private final Consumer<InventoryClickEvent> eventConsumer;
     }
 }
-

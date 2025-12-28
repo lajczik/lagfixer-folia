@@ -1,11 +1,10 @@
 package xyz.lychee.lagfixer.modules;
 
+import com.google.common.collect.ImmutableSet;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.Chunk;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Tag;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,33 +16,29 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.permissions.ServerOperator;
-import org.bukkit.scheduler.BukkitTask;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
-import xyz.lychee.lagfixer.utils.ReflectionUtils;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class RedstoneLimiterModule extends AbstractModule implements Listener {
-    private final Map<String, Long> cooldown = new ConcurrentHashMap<>();
-    private final Map<Chunk, TickCounter> redstone_map = new ConcurrentHashMap<>();
-    private final Map<Chunk, TickCounter> piston_map = new ConcurrentHashMap<>();
-    private final EnumSet<Material> push_blacklist = EnumSet.noneOf(Material.class);
-    private BukkitTask task;
+    private final HashMap<String, Long> cooldown = new HashMap<>();
+    private final HashMap<Chunk, TickCounter> redstone_map = new HashMap<>();
+    private final HashMap<Chunk, TickCounter> piston_map = new HashMap<>();
+    private ScheduledTask task;
     private int ticks_redsone;
     private int ticks_piston;
     private int click_cooldown;
     private boolean break_redstone;
     private boolean break_piston;
     private boolean alerts;
+    private EnumSet<Material> push_blacklist;
 
     public RedstoneLimiterModule(LagFixer plugin, ModuleManager manager) {
-        super(plugin, manager, Impact.MEDIUM, "RedstoneLimiter",
+        super(plugin, manager, Impact.LOW, "RedstoneLimiter",
                 new String[]{
                         "Disables demanding Redstone clocks to prevent server overload.",
                         "Certain Redstone configurations can lead to performance degradation and crashes.",
@@ -85,7 +80,6 @@ public class RedstoneLimiterModule extends AbstractModule implements Listener {
         if (!this.canContinue(e.getPlayer().getWorld())) {
             return;
         }
-
         Block b = e.getBlockPlaced();
         if (b.getType() == Material.REDSTONE_TORCH || b.getType() == Material.REDSTONE_WALL_TORCH) {
             e.setCancelled(this.hasCooldown(e.getPlayer(), b));
@@ -97,7 +91,6 @@ public class RedstoneLimiterModule extends AbstractModule implements Listener {
         if (!this.canContinue(e.getPlayer().getWorld())) {
             return;
         }
-
         Block b = e.getClickedBlock();
         if (b != null && e.getAction() == Action.RIGHT_CLICK_BLOCK && (b.getType() == Material.LEVER || Tag.BUTTONS.isTagged(b.getType()))) {
             e.setCancelled(this.hasCooldown(e.getPlayer(), b));
@@ -113,13 +106,13 @@ public class RedstoneLimiterModule extends AbstractModule implements Listener {
             return false;
         }
         Component text = this.getLanguage().getComponent("cooldown", true, Placeholder.unparsed("cooldown", Long.toString(time - System.currentTimeMillis())), Placeholder.unparsed("material", material));
-        this.getPlugin().getAudiences().player(p).sendActionBar(text);
+        p.sendActionBar(text);
         return true;
     }
 
     @Override
     public void load() {
-        this.task = SupportManager.getInstance().getFork().runTimer(true, () -> {
+        this.task = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> {
             this.redstone_map.values().forEach(counter -> counter.complete(this.ticks_redsone, this.break_redstone));
             this.piston_map.values().forEach(counter -> counter.complete(this.ticks_piston, this.break_piston));
         }, 1L, 2L, TimeUnit.SECONDS);
@@ -135,7 +128,15 @@ public class RedstoneLimiterModule extends AbstractModule implements Listener {
         this.break_redstone = this.getSection().getBoolean("break_block.redstone");
         this.break_piston = this.getSection().getBoolean("break_block.piston");
 
-        ReflectionUtils.convertEnums(Material.class, this.push_blacklist, this.getSection().getStringList("piston.push_blacklist"));
+        List<Material> materials = this.getSection()
+                .getStringList("piston.push_blacklist")
+                .stream()
+                .map(String::toUpperCase)
+                .map(Material::getMaterial)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        this.push_blacklist = materials.isEmpty() ? EnumSet.noneOf(Material.class) : EnumSet.copyOf(materials);
         return true;
     }
 
@@ -178,16 +179,19 @@ public class RedstoneLimiterModule extends AbstractModule implements Listener {
 
         public void complete(int limit, boolean breakBlocks) {
             if (this.ticks > limit) {
-                Set<Block> blockSet = this.blocks.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+                ImmutableSet<Block> blockSet = ImmutableSet.copyOf(this.blocks);
                 this.blocks.clear();
                 Location loc = this.getLocation(blockSet);
                 if (alerts) {
                     Component message = getLanguage().getComponent("alert", true, Placeholder.unparsed("ticks", Integer.toString(this.ticks)), Placeholder.unparsed("location", "x: " + loc.getBlockX() + ", y: " + loc.getBlockY() + ", z: " + loc.getBlockZ()));
-                    getPlugin().getAudiences().filter(ServerOperator::isOp).sendMessage(message);
+                    Bukkit.getOnlinePlayers()
+                            .stream()
+                            .filter(ServerOperator::isOp)
+                            .forEach(p -> p.sendMessage(message));
                 }
                 this.ticks = 0;
                 if (breakBlocks) {
-                    SupportManager.getInstance().getFork().runNow(false, loc, () -> blockSet.forEach(block -> block.setType(Material.AIR)));
+                    Bukkit.getRegionScheduler().run(getPlugin(), loc, t -> blockSet.forEach(block -> block.setType(Material.AIR)));
                 }
                 return;
             }

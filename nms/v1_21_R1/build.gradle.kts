@@ -7,24 +7,18 @@ repositories {
     maven("https://github.com/Euphillya/FoliaDevBundle/raw/gh-pages/")
 }
 
-paperweight {
-    paperweight.reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.MOJANG_PRODUCTION
-}
+paperweight.reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.MOJANG_PRODUCTION
 
 dependencies {
-    paperweight.paperDevBundle("1.21.1-R0.1-SNAPSHOT")
+    paperweight.foliaDevBundle("1.21.1-R0.1-SNAPSHOT")
     compileOnly(project(":plugin"))
 }
 
-
-tasks {
-    assemble {
-        dependsOn(reobfJar)
-    }
-    compileJava {
-        options.encoding = "UTF-8"
-    }
+configurations.all {
+    exclude(group = "me.lucko", module = "spark-paper")
 }
+
+
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21

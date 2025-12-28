@@ -23,31 +23,19 @@ public class ColoredLogger extends Logger {
     }
 
     private static String convertStringMessage(String message) {
-        if (message == null || message.isEmpty()) {
-            return message;
-        }
+        if (message != null && !message.isEmpty()) {
+            String messageCopy = String.copyValueOf(message.toCharArray()) + AnsiColor.RESET.getAnsiColor();
+            Matcher matcher = Pattern.compile(String.format("(%c[0-9a-fk-or])(?!.*\u0001)", '&')).matcher(message);
+            while (matcher.find()) {
+                String result = matcher.group(1);
+                AnsiColor color = AnsiColor.getColorByCode(result.charAt(1));
+                if (color == null) continue;
 
-        StringBuilder result = new StringBuilder();
-        Pattern pattern = Pattern.compile("&([0-9a-fk-or])(?!.*\u0001)");
-        Matcher matcher = pattern.matcher(message);
-
-        int lastEnd = 0;
-        while (matcher.find()) {
-            result.append(message, lastEnd, matcher.start());
-            char codeChar = matcher.group(1).charAt(0);
-            AnsiColor color = AnsiColor.getColorByCode(codeChar);
-            if (color != null) {
-                result.append(color.getAnsiColor());
-            } else {
-                result.append(matcher.group(0));
+                messageCopy = messageCopy.replace(result, color.getAnsiColor());
             }
-            lastEnd = matcher.end();
+            return messageCopy;
         }
-
-        result.append(message.substring(lastEnd));
-        result.append(AnsiColor.RESET.getAnsiColor());
-
-        return result.toString();
+        return message;
     }
 
     @Override

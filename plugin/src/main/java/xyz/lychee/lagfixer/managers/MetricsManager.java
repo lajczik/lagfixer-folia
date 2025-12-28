@@ -6,7 +6,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.objects.AbstractManager;
-import xyz.lychee.lagfixer.objects.AbstractModule;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.ByteArrayOutputStream;
@@ -15,7 +14,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -50,21 +52,8 @@ public class MetricsManager
             this.uuid = cfg.getString("serverUuid");
         }
         this.metricsBase = new MetricsBase(19292, Runnable::run);
-        this.addCustomChart(new SingleLineChart("entities", () -> SupportManager.getInstance().getEntities()));
-        this.addCustomChart(new SingleLineChart("creatures", () -> SupportManager.getInstance().getCreatures()));
-        this.addCustomChart(new SingleLineChart("items", () -> SupportManager.getInstance().getItems()));
-        this.addCustomChart(new SingleLineChart("projectiles", () -> SupportManager.getInstance().getProjectiles()));
-        this.addCustomChart(new SingleLineChart("vehicles", () -> SupportManager.getInstance().getVehicles()));
-        this.addCustomChart(new AdvancedPie("modules", () -> {
-            Map<String, Integer> values = new HashMap<>();
-            Set<AbstractModule> modules = new HashSet<>(ModuleManager.getInstance().getModules().values());
-            for (AbstractModule module : modules) {
-                if (module.isLoaded()) {
-                    values.put(module.getName(), 1);
-                }
-            }
-            return values;
-        }));
+
+        this.addCustomChart(new SingleLineChart("entities", () -> SupportManager.getInstance().getRegionsReport().getEntities().intValue()));
     }
 
     @Override
@@ -125,39 +114,6 @@ public class MetricsManager
             JsonObject jsonObject = new JsonObject();
             jsonObject.addProperty("value", value);
             return jsonObject;
-        }
-    }
-
-    public static class AdvancedPie extends CustomChart {
-
-        private final Callable<Map<String, Integer>> callable;
-
-        public AdvancedPie(String chartId, Callable<Map<String, Integer>> callable) {
-            super(chartId);
-            this.callable = callable;
-        }
-
-        @Override
-        protected JsonObject getChartData() throws Exception {
-            JsonObject data = new JsonObject();
-            JsonObject values = new JsonObject();
-            Map<String, Integer> map = callable.call();
-            if (map == null || map.isEmpty()) {
-                return null;
-            }
-            boolean allSkipped = true;
-            for (Map.Entry<String, Integer> entry : map.entrySet()) {
-                if (entry.getValue() == 0) {
-                    continue;
-                }
-                allSkipped = false;
-                values.addProperty(entry.getKey(), entry.getValue());
-            }
-            if (allSkipped) {
-                return null;
-            }
-            data.add("values", values);
-            return data;
         }
     }
 
@@ -244,7 +200,7 @@ public class MetricsManager
             connection.addRequestProperty("Accept", "application/json");
             connection.addRequestProperty("Connection", "close");
             connection.addRequestProperty("Content-Encoding", "gzip");
-            connection.addRequestProperty("Content-Length", Integer.toString(compressedData.length));
+            connection.addRequestProperty("Content-Length", String.valueOf(compressedData.length));
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setRequestProperty("User-Agent", "Metrics-Service/1");
             connection.setDoOutput(true);

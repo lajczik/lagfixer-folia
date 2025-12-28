@@ -2,8 +2,7 @@ package xyz.lychee.lagfixer.commands;
 
 import org.jetbrains.annotations.NotNull;
 import xyz.lychee.lagfixer.managers.CommandManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
-import xyz.lychee.lagfixer.objects.AbstractMonitor;
+import xyz.lychee.lagfixer.managers.MonitorManager;
 import xyz.lychee.lagfixer.utils.MessageUtils;
 
 public class MonitorCommand extends CommandManager.Subcommand {
@@ -19,7 +18,7 @@ public class MonitorCommand extends CommandManager.Subcommand {
 
     @Override
     public boolean execute(@NotNull org.bukkit.command.CommandSender sender, @NotNull String[] args) {
-        AbstractMonitor monitor = SupportManager.getInstance().getMonitor();
+        MonitorManager monitor = MonitorManager.getInstance();
         return MessageUtils.sendMessage(true, sender,
                 "&7Command result: " +
                         "\n &8{*} &fTps: &e" + monitor.getTps() +

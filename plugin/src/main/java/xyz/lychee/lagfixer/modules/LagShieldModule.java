@@ -1,11 +1,9 @@
 package xyz.lychee.lagfixer.modules;
 
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import lombok.Getter;
-import org.bukkit.GameRule;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.*;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
@@ -20,25 +18,27 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.vehicle.VehicleCreateEvent;
-import org.bukkit.scheduler.BukkitTask;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
+import xyz.lychee.lagfixer.managers.MonitorManager;
 import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.ReflectionUtils;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Getter
-public class LagShieldModule extends AbstractModule implements Runnable, Listener {
+public class LagShieldModule extends AbstractModule implements Listener {
     private final TreeMap<Double, Integer> dynamic_view_distance_tps = new TreeMap<>();
     private final TreeMap<Double, Integer> dynamic_simulation_distance_tps = new TreeMap<>();
     private final TreeMap<Double, Integer> dynamic_tick_speed_tps = new TreeMap<>();
     private int locks = 0;
-    private BukkitTask task;
-    private LagShieldModule.NMS lagShield;
+    private ScheduledTask task;
+
     private double entitySpawn_tps;
     private double tickHopper_tps;
     private double redstone_tps;
@@ -72,63 +72,6 @@ public class LagShieldModule extends AbstractModule implements Runnable, Listene
                 },
                 "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmZjY2ZlNTA5NmEzMzViOWFiNzhhYjRmNzc4YWU0OTlmNGNjYWI0ZTJjOTVmYTM0OTIyN2ZkMDYwNzU5YmFhZiJ9fX0="
         );
-    }
-
-    @Override
-    public void run() {
-        double tps = SupportManager.getInstance().getMonitor().getTps();
-        boolean oldMobAi = this.mobAi;
-
-        this.entitySpawn = tps < this.entitySpawn_tps;
-        this.tickHopper = tps < this.tickHopper_tps;
-        this.redstone = tps < this.redstone_tps;
-        this.projectiles = tps < this.projectiles_tps;
-        this.leavesDecay = tps < this.leavesDecay_tps;
-        this.mobAi = tps < this.mobAi_tps;
-        this.liquidFlow = tps < this.liquidFlow_tps;
-        this.explosions = tps < this.explosions_tps;
-        this.fireworks = tps < this.fireworks_tps;
-
-        if (this.mobAi) {
-            for (World w : this.getAllowedWorlds()) {
-                for (LivingEntity le : w.getLivingEntities()) {
-                    this.lagShield.setEntityAi(le, false);
-                }
-            }
-        } else if (oldMobAi) {
-            for (World w : this.getAllowedWorlds()) {
-                for (LivingEntity le : w.getLivingEntities()) {
-                    this.lagShield.setEntityAi(le, true);
-                }
-            }
-        }
-
-        if (this.dynamic_view_distance) {
-            Integer viewDistance = this.getThreshold(this.dynamic_view_distance_tps, tps);
-            if (viewDistance != null) {
-                for (World w : this.getAllowedWorlds()) {
-                    this.lagShield.setViewDistance(w, viewDistance);
-                }
-            }
-        }
-
-        if (this.dynamic_simulation_distance) {
-            Integer simulationDistance = this.getThreshold(this.dynamic_simulation_distance_tps, tps);
-            if (simulationDistance != null) {
-                for (World w : this.getAllowedWorlds()) {
-                    this.lagShield.setSimulationDistance(w, simulationDistance);
-                }
-            }
-        }
-
-        if (this.dynamic_tick_speed) {
-            Integer tickSpeed = this.getThreshold(this.dynamic_tick_speed_tps, tps);
-            if (tickSpeed != null) {
-                for (World w : this.getAllowedWorlds()) {
-                    w.setGameRule(GameRule.RANDOM_TICK_SPEED, tickSpeed);
-                }
-            }
-        }
     }
 
     private Integer getThreshold(TreeMap<Double, Integer> map, double tps) {
@@ -228,18 +171,83 @@ public class LagShieldModule extends AbstractModule implements Runnable, Listene
 
     @Override
     public void load() throws Exception {
-        this.task = SupportManager.getInstance().getFork().runTimer(false, this, 1L, 1L, TimeUnit.MINUTES);
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        this.task = Bukkit.getGlobalRegionScheduler().runAtFixedRate(this.getPlugin(), t -> {
+            double tps = MonitorManager.getInstance().getTps();
+            boolean oldMobAi = this.mobAi;
 
-        if (!this.lagShield.isSupportSimulation()) {
-            this.dynamic_simulation_distance = false;
-        }
+            this.entitySpawn = tps < this.entitySpawn_tps;
+            this.tickHopper = tps < this.tickHopper_tps;
+            this.redstone = tps < this.redstone_tps;
+            this.projectiles = tps < this.projectiles_tps;
+            this.leavesDecay = tps < this.leavesDecay_tps;
+            this.mobAi = tps < this.mobAi_tps;
+            this.liquidFlow = tps < this.liquidFlow_tps;
+            this.explosions = tps < this.explosions_tps;
+            this.fireworks = tps < this.fireworks_tps;
+
+            if (this.mobAi) {
+                for (World w : this.getAllowedWorlds()) {
+                    this.setEntityAi(w, false);
+                }
+            } else if (oldMobAi) {
+                for (World w : this.getAllowedWorlds()) {
+                    this.setEntityAi(w, true);
+                }
+            }
+
+            if (this.dynamic_view_distance) {
+                Integer viewDistance = this.getThreshold(this.dynamic_view_distance_tps, tps);
+                if (viewDistance != null) {
+                    viewDistance = Math.max(Math.min(viewDistance, 32), 2);
+                    for (World w : this.getAllowedWorlds()) {
+                        w.setViewDistance(viewDistance);
+                    }
+                }
+            }
+
+            if (this.dynamic_simulation_distance) {
+                Integer simulationDistance = this.getThreshold(this.dynamic_simulation_distance_tps, tps);
+                if (simulationDistance != null) {
+                    simulationDistance = Math.max(Math.min(simulationDistance, 32), 2);
+                    for (World w : this.getAllowedWorlds()) {
+                        w.setSimulationDistance(simulationDistance);
+                    }
+                }
+            }
+
+            if (this.dynamic_tick_speed) {
+                Integer tickSpeed = this.getThreshold(this.dynamic_tick_speed_tps, tps);
+                if (tickSpeed != null) {
+                    for (World w : this.getAllowedWorlds()) {
+                        w.setGameRule(GameRule.RANDOM_TICK_SPEED, tickSpeed);
+                    }
+                }
+            }
+        }, 20L * 60L, 20L * 60L);
+        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+    }
+
+    public void setEntityAi(World world, boolean mobAi) {
+        Map<SupportManager.RegionPos, List<Chunk>> regions = SupportManager.createRegionMap(world);
+        regions.forEach((regionPos, chunks) -> {
+            Executor executor = task -> Bukkit.getRegionScheduler().execute(this.getPlugin(), world, regionPos.getX() << 3, regionPos.getZ() << 3, task);
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                for (Chunk chunk : chunks) {
+                    Entity[] entities = chunk.getEntities();
+                    for (Entity entity : entities) {
+                        if (!(entity instanceof Mob mob) || mob.hasAI() == mobAi) continue;
+
+                        mob.setAI(mobAi);
+                        mob.setCollidable(!mobAi);
+                        mob.setSilent(!mobAi);
+                    }
+                }
+            }, executor);
+        });
     }
 
     @Override
     public boolean loadConfig() {
-        this.lagShield = ReflectionUtils.createInstance("LagShield", this);
-
         this.entitySpawn_tps = this.getSection().getDouble("tps_threshold.entity_spawn");
         this.tickHopper_tps = this.getSection().getDouble("tps_threshold.tick_hopper");
         this.redstone_tps = this.getSection().getDouble("tps_threshold.redstone");
@@ -265,7 +273,7 @@ public class LagShieldModule extends AbstractModule implements Runnable, Listene
             this.loadThreshold(this.dynamic_tick_speed_tps, "dynamic_tick_speed.tps_thresholds");
         }
 
-        return this.lagShield != null;
+        return true;
     }
 
     @Override
@@ -275,22 +283,4 @@ public class LagShieldModule extends AbstractModule implements Runnable, Listene
         }
         HandlerList.unregisterAll(this);
     }
-
-    @Getter
-    public static abstract class NMS {
-        private final LagShieldModule module;
-
-        public NMS(LagShieldModule module) {
-            this.module = module;
-        }
-
-        public abstract boolean isSupportSimulation();
-
-        public abstract void setViewDistance(World world, int view);
-
-        public abstract void setSimulationDistance(World world, int simulation);
-
-        public abstract void setEntityAi(Entity entity, boolean status);
-    }
 }
-

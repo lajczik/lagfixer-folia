@@ -1,5 +1,6 @@
 package xyz.lychee.lagfixer.utils;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -8,6 +9,7 @@ import java.util.Random;
  * 30% faster and better quality than the built-in java.util.random see also see
  * http://www.javamex.com/tutorials/random_numbers/xorshift.shtml
  */
+@ThreadSafe // The fast random can be used with multiple threads
 public class FastRandom extends Random implements Cloneable {
     private static final long serialVersionUID = 1L;
 

@@ -9,10 +9,9 @@ import org.jetbrains.annotations.NotNull;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.HookManager;
 import xyz.lychee.lagfixer.managers.ModuleManager;
-import xyz.lychee.lagfixer.managers.SupportManager;
+import xyz.lychee.lagfixer.managers.MonitorManager;
 import xyz.lychee.lagfixer.modules.WorldCleanerModule;
 import xyz.lychee.lagfixer.objects.AbstractHook;
-import xyz.lychee.lagfixer.objects.AbstractMonitor;
 
 @Getter
 public class PlaceholderAPIHook extends AbstractHook {
@@ -77,26 +76,18 @@ public class PlaceholderAPIHook extends AbstractHook {
         }
 
         public String response(String id) {
-            AbstractMonitor monitor = SupportManager.getInstance().getMonitor();
-            switch (id.toLowerCase()) {
-                case "tps": {
-                    return Double.toString(monitor.getTps());
-                }
-                case "mspt": {
-                    return Double.toString(monitor.getMspt());
-                }
-                case "cpuprocess": {
-                    return Double.toString(monitor.getCpuProcess());
-                }
-                case "cpusystem": {
-                    return Double.toString(monitor.getCpuSystem());
-                }
-                case "worldcleaner": {
+            MonitorManager monitor = MonitorManager.getInstance();
+            return switch (id.toLowerCase()) {
+                case "tps" -> Double.toString(monitor.getTps());
+                case "mspt" -> Double.toString(monitor.getMspt());
+                case "cpuprocess" -> Double.toString(monitor.getCpuProcess());
+                case "cpusystem" -> Double.toString(monitor.getCpuSystem());
+                case "worldcleaner" -> {
                     WorldCleanerModule module = ModuleManager.getInstance().get(WorldCleanerModule.class);
-                    return module == null || !module.isLoaded() ? null : module.getSecond() + "s";
+                    yield module == null || !module.isLoaded() ? null : module.getSecond() + "s";
                 }
-            }
-            return null;
+                default -> null;
+            };
         }
     }
 }

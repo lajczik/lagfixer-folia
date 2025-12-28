@@ -7,18 +7,14 @@ import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_20_R1.entity.CraftBoat;
 import org.bukkit.craftbukkit.v1_20_R1.entity.CraftMinecart;
 import org.bukkit.craftbukkit.v1_20_R1.entity.CraftMinecartChest;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.world.EntitiesLoadEvent;
+import org.bukkit.entity.Vehicle;
 import xyz.lychee.lagfixer.modules.VehicleMotionReducerModule;
 
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.function.Function;
 
-public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS implements Listener {
-    private static final IdentityHashMap<Class<? extends Entity>, Function<Entity, Entity>> VEHICLES = new IdentityHashMap<>(8);
+public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS {
+    private static final IdentityHashMap<Class<? extends Entity>, Function<Entity, Entity>> VEHICLES = new IdentityHashMap<>(10);
 
     static {
         VEHICLES.put(Boat.class, e -> new OptimizedEntities.OBoat((Boat) e));
@@ -37,7 +33,7 @@ public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS impleme
     }
 
     @Override
-    public boolean optimizeVehicle(org.bukkit.entity.Entity vehicle) {
+    public boolean optimizeVehicle(Vehicle vehicle) {
         if (vehicle instanceof CraftBoat) {
             if (!this.getModule().isBoat()) return false;
 
@@ -57,14 +53,6 @@ public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS impleme
         return false;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onSpawn(EntitiesLoadEvent e) {
-        List<org.bukkit.entity.Entity> entities = e.getEntities();
-        for (org.bukkit.entity.Entity entity : entities) {
-            this.optimizeVehicle(entity);
-        }
-    }
-
     private boolean processEntity(Entity original) {
         if (original instanceof OptimizedEntities) return false;
 
@@ -72,10 +60,12 @@ public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS impleme
         if (factory == null) return false;
 
         Entity newVehicle = factory.apply(original);
-        this.copyLocation(original, newVehicle);
+        newVehicle.setSilent(true);
+        copyLocation(original, newVehicle);
+        copyItems(original, newVehicle);
+
+        original.removeVehicle();
         original.level().addFreshEntity(newVehicle);
-        this.copyItems(original, newVehicle);
-        original.remove(Entity.RemovalReason.DISCARDED);
         return true;
     }
 

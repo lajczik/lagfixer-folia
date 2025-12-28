@@ -2,27 +2,22 @@ package xyz.lychee.lagfixer.utils;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Nullable;
-import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.Language;
 import xyz.lychee.lagfixer.hooks.PlaceholderAPIHook;
 import xyz.lychee.lagfixer.managers.ConfigManager;
 import xyz.lychee.lagfixer.managers.HookManager;
 
-import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-public class MessageUtils {
+public class MessageUtils extends JavaPlugin {
     private static final Map<String, String> REPLACEMENTS;
 
     static {
@@ -50,7 +45,7 @@ public class MessageUtils {
 
     private static String applyReplacements(String text) {
         for (Map.Entry<String, String> entry : REPLACEMENTS.entrySet()) {
-            text = text.replace(entry.getKey(), entry.getValue());
+            text = StringUtils.replace(text, entry.getKey(), entry.getValue());
         }
         return text;
     }
@@ -59,22 +54,14 @@ public class MessageUtils {
         if (sender instanceof Player) {
             PlaceholderAPIHook papi = HookManager.getInstance().getHook(PlaceholderAPIHook.class);
             if (papi != null) {
-                return papi.applyPlaceholders((Player) sender, text);
+                text = papi.applyPlaceholders((Player) sender, text);
             }
         }
         return text;
     }
 
     public static boolean sendMessage(boolean prefix, CommandSender sender, String message) {
-        Component text = colors(sender, "&f" + message);
-
-        LagFixer.getInstance()
-                .getAudiences()
-                .sender(sender)
-                .sendMessage(prefix ?
-                        Component.empty().append(ConfigManager.getInstance().getPrefix()).append(text) : text
-                );
-
+        sender.sendMessage(MessageUtils.fixColors(sender, (prefix ? ConfigManager.getInstance().getLegacyPrefix() : "") + "&f" + applyReplacements(message)));
         return false;
     }
 }
