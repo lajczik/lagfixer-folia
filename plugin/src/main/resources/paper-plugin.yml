@@ -1,0 +1,19 @@
+name: LagFixer
+version: ${project.version} (folia build)
+main: xyz.lychee.lagfixer.LagFixer
+author: lychee
+api-version: "1.20"
+bootstrapper: xyz.lychee.lagfixer.LagFixerBootstrap
+loader: xyz.lychee.lagfixer.LagFixerLoader
+softdepend: [
+  PlaceholderAPI,
+  spark,
+  LevelledMobs,
+  RoseStacker,
+  UltimateStacker,
+  WildStacker,
+  ModelEngine,
+  MythicMobs,
+  StackMob
+]
+folia-supported: true
