@@ -1,8 +1,6 @@
 package xyz.lychee.lagfixer;
 
 import lombok.Getter;
-import org.bukkit.Bukkit;
-import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 import xyz.lychee.lagfixer.managers.*;
 import xyz.lychee.lagfixer.objects.AbstractManager;
