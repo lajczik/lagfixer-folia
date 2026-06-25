@@ -15,11 +15,9 @@ repositories {
 
 dependencies {
     compileOnly("dev.folia:folia-api:1.20.1-R0.1-SNAPSHOT")
-    compileOnly("com.mojang:authlib:3.11.50")
-    compileOnly("org.apache.logging.log4j:log4j-core:2.22.1")
+
     compileOnly("com.github.placeholderapi:placeholderapi:2.11.6")
     compileOnly("me.lucko:spark-api:0.1-SNAPSHOT")
-    compileOnly("org.jetbrains:annotations:24.1.0")
     compileOnly("com.bgsoftware:WildStackerAPI:2025.1")
     compileOnly("dev.rosewood:rosestacker:1.5.33")
     compileOnly("com.ticxo.modelengine:api:R3.2.0")
@@ -28,7 +26,8 @@ dependencies {
     compileOnly("uk.antiperson.stackmob:StackMob:5.10.3")
     compileOnly(files("libs/LevelledMobs.jar"))
 
-    compileOnly("commons-io:commons-io:2.22.0")
+    compileOnly("org.apache.logging.log4j:log4j-core:2.17.2")
+    compileOnly("org.jetbrains:annotations:26.1.0")
     compileOnly("com.github.oshi:oshi-core:7.3.1")
     compileOnly("org.apache.commons:commons-lang3:3.20.0")
 }
