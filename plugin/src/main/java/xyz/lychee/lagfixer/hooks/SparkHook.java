@@ -9,7 +9,9 @@ import me.lucko.spark.api.statistic.misc.DoubleAverageInfo;
 import me.lucko.spark.api.statistic.types.DoubleStatistic;
 import me.lucko.spark.api.statistic.types.GenericStatistic;
 import org.bukkit.Bukkit;
-import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.ServerLoadEvent;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ErrorsManager;
 import xyz.lychee.lagfixer.managers.HookManager;
@@ -18,10 +20,8 @@ import xyz.lychee.lagfixer.objects.AbstractHook;
 import xyz.lychee.lagfixer.objects.ISupportNms;
 import xyz.lychee.lagfixer.objects.ResourceMonitor;
 
-import java.util.concurrent.TimeUnit;
-
 @Getter
-public class SparkHook extends AbstractHook {
+public class SparkHook extends AbstractHook implements Listener {
     private ScheduledTask task;
 
     public SparkHook(LagFixer plugin, HookManager manager) {
@@ -30,13 +30,7 @@ public class SparkHook extends AbstractHook {
 
     @Override
     public void load() {
-        SupportManager support = SupportManager.getInstance();
-        support.getResourceMonitor().stop();
-
-        SparkMonitor monitor = new SparkMonitor(this.getPlugin());
-        monitor.start();
-        support.setResourceMonitor(monitor);
-
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
         this.task = Bukkit.getGlobalRegionScheduler().runAtFixedRate(this.getPlugin(), t -> {
             if (ErrorsManager.getInstance().isEnabled() && Bukkit.getOnlinePlayers().size() > 20) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "spark profiler open");
@@ -49,6 +43,16 @@ public class SparkHook extends AbstractHook {
         if (this.task != null) {
             this.task.cancel();
         }
+    }
+
+    @EventHandler
+    public void onLoad(ServerLoadEvent event) {
+        SupportManager support = SupportManager.getInstance();
+        support.getResourceMonitor().stop();
+
+        SparkMonitor monitor = new SparkMonitor(this.getPlugin());
+        monitor.start();
+        support.setResourceMonitor(monitor);
     }
 
     static class SparkMonitor extends ResourceMonitor {
