@@ -27,7 +27,7 @@ public class SupportNms implements ISupportNms {
         }
 
         if (tpsByRegion.isEmpty()) {
-            return new TickReport(20, 0);
+            return FALLBACK_TICK_REPORT;
         }
 
         int middle = tpsByRegion.size() >> 1;
