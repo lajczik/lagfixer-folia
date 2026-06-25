@@ -5,15 +5,43 @@ author: lychee
 api-version: "1.20"
 bootstrapper: xyz.lychee.lagfixer.LagFixerBootstrap
 loader: xyz.lychee.lagfixer.LagFixerLoader
-softdepend: [
-  PlaceholderAPI,
-  spark,
-  LevelledMobs,
-  RoseStacker,
-  UltimateStacker,
-  WildStacker,
-  ModelEngine,
-  MythicMobs,
-  StackMob
-]
 folia-supported: true
+
+dependencies:
+  server:
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    spark:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    LevelledMobs:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    RoseStacker:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    UltimateStacker:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    WildStacker:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    ModelEngine:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    MythicMobs:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    StackMob:
+      load: BEFORE
+      required: false
+      join-classpath: true
