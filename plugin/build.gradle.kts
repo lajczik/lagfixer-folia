@@ -11,24 +11,30 @@ repositories {
     maven("https://mvn.lumine.io/repository/maven-public/")
     maven("https://repo.codemc.io/repository/maven-public/")
     maven("https://nexus.sirblobman.xyz/public/")
+    maven("https://repo.helpch.at/releases/")
+    maven("https://central.sonatype.com/")
+    maven("https://maven.google.com")
+    maven("https://repo.songoda.com/repository/minecraft-plugins/")
 }
 
 dependencies {
     compileOnly("dev.folia:folia-api:1.20.1-R0.1-SNAPSHOT")
 
-    compileOnly("com.github.placeholderapi:placeholderapi:2.11.6")
+    compileOnly("me.clip:placeholderapi:2.12.2")
     compileOnly("me.lucko:spark-api:0.1-SNAPSHOT")
-    compileOnly("com.bgsoftware:WildStackerAPI:2025.1")
-    compileOnly("dev.rosewood:rosestacker:1.5.33")
-    compileOnly("com.ticxo.modelengine:api:R3.2.0")
-    compileOnly("io.lumine:Mythic-Dist:5.6.1")
+    compileOnly("com.bgsoftware:WildStackerAPI:2026.1")
+    compileOnly("dev.rosewood:rosestacker:1.5.41")
+    compileOnly("com.ticxo.modelengine:ModelEngine:R4.0.9")
+    compileOnly("io.lumine:Mythic-Dist:5.12.0")
     compileOnly("com.songoda:UltimateStacker-API:1.0.0-SNAPSHOT")
-    compileOnly("uk.antiperson.stackmob:StackMob:5.10.3")
-    compileOnly(files("libs/LevelledMobs.jar"))
+    compileOnly("uk.antiperson.stackmob:StackMob:5.10.6")
+    compileOnly("io.github.arcaneplugins:levelledmobs-plugin:4.0.3.1")
+    compileOnly("io.github.toxicity188:bettermodel-bukkit-api:3.3.0")
+    compileOnly("com.github.retrooper:packetevents-api:2.13.0")
 
     compileOnly("org.apache.logging.log4j:log4j-core:2.17.2")
     compileOnly("org.jetbrains:annotations:26.1.0")
-    compileOnly("com.github.oshi:oshi-core:7.3.1")
+    compileOnly("com.github.oshi:oshi-core:7.4.4")
     compileOnly("org.apache.commons:commons-lang3:3.20.0")
 }
 

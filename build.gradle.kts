@@ -9,7 +9,7 @@ val sonatypeRepo = "https://oss.sonatype.org/content/groups/public/"
 val jitpack = "https://jitpack.io"
 val mojang = "https://libraries.minecraft.net"
 
-version = "1.6.5"
+version = "1.7.1"
 
 dependencies {
     implementation(project(":plugin"))
@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":nms:v1_21_R5"))
     implementation(project(":nms:v1_21_R7"))
     implementation(project(":nms:v26_1"))
+    implementation(project(":nms:v26_2"))
 }
 
 tasks {

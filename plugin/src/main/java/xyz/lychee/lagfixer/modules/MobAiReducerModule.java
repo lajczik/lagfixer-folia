@@ -3,6 +3,11 @@ package xyz.lychee.lagfixer.modules;
 import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import lombok.Getter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.entity.*;
@@ -19,10 +24,7 @@ import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.ReflectionUtils;
 
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +34,7 @@ public class MobAiReducerModule extends AbstractModule implements Listener {
     private final EnumSet<EntityType> list = EnumSet.noneOf(EntityType.class);
     private final EnumSet<CreatureSpawnEvent.SpawnReason> reasons = EnumSet.noneOf(CreatureSpawnEvent.SpawnReason.class);
     private final HashSet<String> ai_list = new HashSet<>();
+    private final ErrorFilter filter = new ErrorFilter();
     private ScheduledTask task;
     private NMS mobAiReducer;
     private boolean ignore_models;
@@ -97,7 +100,7 @@ public class MobAiReducerModule extends AbstractModule implements Listener {
     }
 
     public boolean isEnabled(Entity ent) {
-        if ((!this.ignore_models && HookManager.getInstance().getModel().hasModel(ent)) || this.list.contains(ent.getType()) != this.list_mode)
+        if ((!this.ignore_models && HookManager.getInstance().getModelHook().hasModel(ent)) || this.list.contains(ent.getType()) != this.list_mode)
             return false;
 
         return switch (ent) {
@@ -110,10 +113,25 @@ public class MobAiReducerModule extends AbstractModule implements Listener {
         };
     }
 
+    public boolean containsFilter(Logger logger) {
+        Iterator<Filter> it = logger.getFilters();
+        while (it.hasNext()) {
+            Filter filter = it.next();
+            if (filter instanceof ErrorFilter) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void load() {
+        Logger logger = (Logger) LogManager.getRootLogger();
+        if (!this.containsFilter(logger)) {
+            logger.addFilter(this.filter);
+        }
+
         Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
-        Bukkit.getPluginManager().registerEvents(this.mobAiReducer, this.getPlugin());
 
         if (this.force_load) {
             RegionScheduler scheduler = Bukkit.getRegionScheduler();
@@ -143,7 +161,7 @@ public class MobAiReducerModule extends AbstractModule implements Listener {
     public boolean loadConfig() {
         this.mobAiReducer = ReflectionUtils.createInstance("MobAiReducer", this);
 
-        this.ignore_models = HookManager.getInstance().noneModels() || this.getSection().getBoolean("ignore_models");
+        this.ignore_models = HookManager.getInstance().getModelHook() == null || this.getSection().getBoolean("ignore_models");
         this.animals = this.getSection().getBoolean("entities.animals");
         this.monsters = this.getSection().getBoolean("entities.monsters");
         this.villagers = this.getSection().getBoolean("entities.villagers");
@@ -196,12 +214,13 @@ public class MobAiReducerModule extends AbstractModule implements Listener {
     @Override
     public void disable() {
         HandlerList.unregisterAll(this);
-        if (this.task != null && !this.task.isCancelled())
+        if (this.task != null && !this.task.isCancelled()) {
             this.task.cancel();
+        }
     }
 
     @Getter
-    public static abstract class NMS implements Listener {
+    public static abstract class NMS {
         private final MobAiReducerModule module;
 
         public NMS(MobAiReducerModule module) {
@@ -213,5 +232,19 @@ public class MobAiReducerModule extends AbstractModule implements Listener {
         public abstract void optimize(Entity entity, boolean init);
 
         public abstract void purge();
+    }
+
+    private static class ErrorFilter extends AbstractFilter {
+        @Override
+        public Filter.Result filter(LogEvent event) {
+            if (event.getThrown() instanceof NullPointerException npe
+                    && npe.getMessage() != null
+                    && npe.getMessage().contains(".isRunning()")
+            ) {
+                return Result.DENY;
+            }
+
+            return Filter.Result.NEUTRAL;
+        }
     }
 }

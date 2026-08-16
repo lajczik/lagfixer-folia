@@ -119,7 +119,7 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
 
     @Override
     public void load() {
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
 
         if (this.overflow_enabled) {
             final int limit_creatures = (int) (this.creatures * this.overflow_multiplier);
@@ -134,7 +134,7 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
 
             this.overflow_task = Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), t -> {
                 this.getAllowedWorlds().forEach(world -> {
-                    HookManager.ModelContainer model = HookManager.getInstance().getModel();
+                    HookManager.ModelContainer model = HookManager.getInstance().getModelHook();
 
                     Map<SupportManager.RegionPos, List<Chunk>> regions = SupportManager.createRegionMap(world);
                     regions.forEach((regionPos, chunks) -> {
@@ -183,7 +183,7 @@ public class EntityLimiterModule extends AbstractModule implements Listener {
 
     @Override
     public boolean loadConfig() {
-        this.ignore_models = HookManager.getInstance().noneModels() || this.getSection().getBoolean("ignore_models");
+        this.ignore_models = HookManager.getInstance().getModelHook() == null || this.getSection().getBoolean("ignore_models");
         this.creatures = this.getSection().getInt("creatures");
         this.items = this.getSection().getInt("items");
         this.vehicles = this.getSection().getInt("vehicles");

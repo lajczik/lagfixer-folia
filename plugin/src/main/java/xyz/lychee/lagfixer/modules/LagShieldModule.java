@@ -222,7 +222,7 @@ public class LagShieldModule extends AbstractModule implements Listener {
                 }
             }
         }, 20L * 60L, 20L * 60L);
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
     }
 
     public void setEntityAi(World world, boolean mobAi) {

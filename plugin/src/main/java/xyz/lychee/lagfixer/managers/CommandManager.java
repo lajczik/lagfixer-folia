@@ -155,32 +155,29 @@ public class CommandManager extends AbstractManager {
         }
 
         @Override
-        public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) {
-            if (args.length == 1) {
-                List<String> completions = new ArrayList<>(subcommandsWithAliases.keySet());
-                if (!args[0].isEmpty()) {
-                    completions.removeIf(str -> !str.startsWith(args[0]));
-                }
-                Collections.sort(completions);
-                return completions;
-            } else if (args.length >= 2) {
+        public @NotNull List<String> tabComplete(@NotNull CommandSender commandSender, @NotNull String alias, @NotNull String[] args) {
+            if (args.length >= 2) {
                 String subCommandName = args[0].toLowerCase();
                 Subcommand subCommand = subcommandsWithAliases.get(subCommandName);
 
                 if (subCommand != null) {
                     String[] subArgs = Arrays.copyOfRange(args, 1, args.length);
-                    List<String> tabComplete = subCommand.tabComplete(sender, subArgs);
-                    if (tabComplete != null && !tabComplete.isEmpty()) {
-                        return tabComplete;
-                    }
+                    List<String> tabComplete = subCommand.tabComplete(commandSender, subArgs);
+                    return tabComplete != null && !tabComplete.isEmpty() ? tabComplete : Collections.emptyList();
                 }
-                return Bukkit.getOnlinePlayers().stream()
-                        .map(HumanEntity::getName)
-                        .filter(s -> s.startsWith(args[1]))
-                        .collect(Collectors.toList());
             }
 
-            return Collections.emptyList();
+            if (args.length == 1 && !args[0].isBlank()) {
+                String arg = args[0].toLowerCase();
+                return subcommandsWithAliases.keySet()
+                        .stream()
+                        .filter(str -> str.startsWith(arg))
+                        .toList();
+            }
+
+            List<String> completions = new ArrayList<>(subcommandsWithAliases.keySet());
+            Collections.sort(completions);
+            return completions;
         }
     }
 }

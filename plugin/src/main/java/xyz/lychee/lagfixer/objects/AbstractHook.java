@@ -28,6 +28,6 @@ public abstract class AbstractHook {
 
     public abstract void load() throws Exception;
 
-    public abstract void disable() throws Exception;
+    public abstract void disable();
 }
 

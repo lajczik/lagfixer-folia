@@ -102,7 +102,7 @@ public class UpdaterManager extends AbstractManager implements Listener {
                 );
             }
         }, 1L, 30L, TimeUnit.MINUTES);
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
     }
 
     @Override

@@ -55,7 +55,6 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
     private float explosionSoundVolume;
     private boolean allowExplosionKnockback;
     private float explosionKnockbackMultiplier;
-    private boolean explosionKnockbackFastIntSqrt;
 
     public ExplosionOptimizerModule(LagFixer plugin, ModuleManager manager) {
         super(plugin, manager, Impact.HIGH, "ExplosionOptimizer",
@@ -202,16 +201,11 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
             if (this.allowExplosionKnockback && distanceSquared > 0.01) {
                 Vector direction = eLoc.toVector().subtract(location.toVector());
 
-                double invSqrt;
-                if (this.explosionKnockbackFastIntSqrt) {
-                    double half = 0.5 * distanceSquared;
-                    long i = Double.doubleToLongBits(distanceSquared);
-                    i = 0x5fe6eb50c7b537a9L - (i >> 1);
-                    double y = Double.longBitsToDouble(i);
-                    invSqrt = y * (1.5 - half * y * y);
-                } else {
-                    invSqrt = 1.0 / Math.sqrt(distanceSquared);
-                }
+                double half = 0.5 * distanceSquared;
+                long i = Double.doubleToLongBits(distanceSquared);
+                i = 0x5fe6eb50c7b537a9L - (i >> 1);
+                double y = Double.longBitsToDouble(i);
+                double invSqrt = y * (1.5 - half * y * y);
 
                 double falloff = (radiusSquared - distanceSquared) * invRadiusSquared;
                 double strength = (falloff * falloff) * power * this.explosionKnockbackMultiplier;
@@ -324,7 +318,6 @@ public class ExplosionOptimizerModule extends AbstractModule implements Listener
             explosionSoundVolume = (float) getSection().getDouble("management.explosion_sound.volume", 1);
             allowExplosionKnockback = getSection().getBoolean("management.explosion_knockback.enabled", false);
             explosionKnockbackMultiplier = (float) getSection().getDouble("management.explosion_knockback.multiplier", 0.6);
-            explosionKnockbackFastIntSqrt = getSection().getBoolean("management.explosion_knockback.use_newton_raphson", true);
         }
 
         return true;

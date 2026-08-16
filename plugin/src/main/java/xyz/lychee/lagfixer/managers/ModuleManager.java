@@ -29,7 +29,9 @@ public class ModuleManager extends AbstractManager {
                 new VehicleMotionReducerModule(plugin, this),
                 new InstantLeafDecayModule(plugin, this),
                 new AbilityLimiterModule(plugin, this),
-                new ExplosionOptimizerModule(plugin, this)
+                new ExplosionOptimizerModule(plugin, this),
+                new AFKOptimizerModule(plugin, this),
+                new TrashDisposalModule(plugin, this)
         );
     }
 
@@ -61,14 +63,14 @@ public class ModuleManager extends AbstractManager {
                 if (enabled) {
                     if (success) {
                         module.load();
-                        this.getPlugin().getLogger().info(" &8• &rSuccessfully loaded module " + module.getName() + " in " + t.stop().getExecutingTime() + "ms.");
+                        this.getPlugin().getLogger().info(" &8• &rSuccessfully loaded module " + module.getName() + " in " + t.stop() + "!");
                     } else {
-                        this.getPlugin().getLogger().info(" &8• &rSkipping unsupported module " + module.getName() + " for " + Bukkit.getServer().getBukkitVersion() + ".");
+                        this.getPlugin().getLogger().info(" &8• &rSkipping unsupported module " + module.getName() + " for " + Bukkit.getServer().getBukkitVersion() + "!");
                     }
                 }
 
                 module.setLoaded(success && enabled);
-            } catch (Throwable ex) {
+            } catch (Exception ex) {
                 module.setLoaded(false);
                 this.getPlugin().getLogger().info(" &8• &cSkipping module " + module.getName() + ", reason: " + ex.getMessage());
                 this.getPlugin().printError(ex);
@@ -94,7 +96,7 @@ public class ModuleManager extends AbstractManager {
             try {
                 TimingUtil t = TimingUtil.startNew();
                 module.disable();
-                this.getPlugin().getLogger().info(" • Successfully disabled module " + module.getName() + " in " + t.stop().getExecutingTime() + "ms.");
+                this.getPlugin().getLogger().info(" • Successfully disabled module " + module.getName() + " in " + t.stop() + "!");
             } catch (Exception ex) {
                 this.getPlugin().getLogger().info(" • Error with disabling module " + module.getName() + ", reason: " + ex.getMessage());
                 this.getPlugin().printError(ex);
@@ -107,4 +109,3 @@ public class ModuleManager extends AbstractManager {
         return true;
     }
 }
-

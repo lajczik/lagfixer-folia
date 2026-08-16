@@ -20,28 +20,26 @@ import java.util.IdentityHashMap;
 import java.util.function.Function;
 
 public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS {
-    private static final IdentityHashMap<Class<? extends VehicleEntity>, Function<VehicleEntity, VehicleEntity>> VEHICLES = new IdentityHashMap<>(10);
-
-    static {
-        VEHICLES.put(Raft.class, e -> new VehicleWrapper.ORaft((Raft) e));
-        VEHICLES.put(ChestRaft.class, e -> new VehicleWrapper.OChestRaft((ChestRaft) e));
-        VEHICLES.put(Boat.class, e -> new VehicleWrapper.OBoat((Boat) e));
-        VEHICLES.put(ChestBoat.class, e -> new VehicleWrapper.OChestBoat((ChestBoat) e));
-
-        VEHICLES.put(MinecartChest.class, e -> new VehicleWrapper.OMinecartChest((MinecartChest) e));
-        VEHICLES.put(MinecartHopper.class, e -> new VehicleWrapper.OMinecartHopper((MinecartHopper) e));
-        VEHICLES.put(MinecartFurnace.class, e -> new VehicleWrapper.OMinecartFurnace((MinecartFurnace) e));
-        VEHICLES.put(MinecartSpawner.class, e -> new VehicleWrapper.OMinecartSpawner((MinecartSpawner) e));
-        VEHICLES.put(MinecartTNT.class, e -> new VehicleWrapper.OMinecartTNT((MinecartTNT) e));
-        VEHICLES.put(Minecart.class, e -> new VehicleWrapper.OMinecart((Minecart) e));
-    }
+    private final IdentityHashMap<Class<? extends Entity>, Function<Entity, Entity>> vehicles = new IdentityHashMap<>(10);
 
     public VehicleMotionReducer(VehicleMotionReducerModule module) {
         super(module);
+
+        vehicles.put(Raft.class, e -> new VehicleWrapper.ORaft(this, (Raft) e));
+        vehicles.put(ChestRaft.class, e -> new VehicleWrapper.OChestRaft(this, (ChestRaft) e));
+        vehicles.put(Boat.class, e -> new VehicleWrapper.OBoat(this, (Boat) e));
+        vehicles.put(ChestBoat.class, e -> new VehicleWrapper.OChestBoat(this, (ChestBoat) e));
+
+        vehicles.put(MinecartChest.class, e -> new VehicleWrapper.OMinecartChest(this, (MinecartChest) e));
+        vehicles.put(MinecartHopper.class, e -> new VehicleWrapper.OMinecartHopper(this, (MinecartHopper) e));
+        vehicles.put(MinecartFurnace.class, e -> new VehicleWrapper.OMinecartFurnace(this, (MinecartFurnace) e));
+        vehicles.put(MinecartSpawner.class, e -> new VehicleWrapper.OMinecartSpawner(this, (MinecartSpawner) e));
+        vehicles.put(MinecartTNT.class, e -> new VehicleWrapper.OMinecartTNT(this, (MinecartTNT) e));
+        vehicles.put(Minecart.class, e -> new VehicleWrapper.OMinecart(this, (Minecart) e));
     }
 
     @Override
-    public boolean optimizeVehicle(org.bukkit.entity.Entity vehicle) {
+    public boolean optimize(org.bukkit.entity.Entity vehicle) {
         if (vehicle instanceof CraftBoat boat) {
             if (!this.getModule().isBoat()) return false;
 
@@ -54,14 +52,15 @@ public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS {
         return false;
     }
 
-    private boolean processEntity(VehicleEntity original) {
+    private boolean processEntity(Entity original) {
         if (original instanceof VehicleWrapper) return false;
 
-        Function<VehicleEntity, ? extends VehicleEntity> factory = VEHICLES.get(original.getClass());
+        Function<Entity, ? extends Entity> factory = this.vehicles.get(original.getClass());
         if (factory == null) return false;
 
-        VehicleEntity newVehicle = factory.apply(original);
+        Entity newVehicle = factory.apply(original);
         newVehicle.setSilent(true);
+
         copyLocation(original, newVehicle);
         copyItems(original, newVehicle);
 
@@ -82,7 +81,7 @@ public class VehicleMotionReducer extends VehicleMotionReducerModule.NMS {
         }
     }
 
-    private void copyLocation(VehicleEntity from, VehicleEntity to) {
+    private void copyLocation(Entity from, Entity to) {
         to.setPos(from.xo, from.yo, from.zo);
         to.xo = from.xo;
         to.yo = from.yo;

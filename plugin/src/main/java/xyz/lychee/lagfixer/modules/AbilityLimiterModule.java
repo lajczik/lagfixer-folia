@@ -12,20 +12,35 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerRiptideEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.lang.reflect.Field;
 
 public class AbilityLimiterModule extends AbstractModule implements Listener {
+    private static final Enchantment UNBREAKING;
+
+    static {
+        Enchantment enchantment;
+        try {
+            Field f = Enchantment.class.getField("UNBREAKING");
+            enchantment = (Enchantment) f.get(null);
+        } catch (Throwable ex1) {
+            try {
+                enchantment = Enchantment.DURABILITY;
+            } catch (Throwable ex2) {
+                // if the Minecraft devs change their minds and come up with a different name again...
+                enchantment = null;
+            }
+        }
+
+        UNBREAKING = enchantment;
+    }
+
     private int trident_cooldown;
     private int elytra_cooldown;
-    private double trident_speed;
-    private double elytra_speed;
     private int trident_durability;
     private int elytra_durability;
 
@@ -63,32 +78,7 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
             if ((action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK)
                     && player.isGliding()
                     && !player.hasCooldown(Material.FIREWORK_ROCKET)) {
-                player.setCooldown(Material.FIREWORK_ROCKET, this.elytra_cooldown);
-
-                if (firework.getAmount() > 1) firework.setAmount(firework.getAmount() - 1);
-                else player.getInventory().remove(firework);
-
-                int duration;
-                ItemMeta meta = firework.getItemMeta();
-                if (meta instanceof FireworkMeta fireworkMeta) {
-                    duration = switch (fireworkMeta.getPower()) {
-                        case 2 -> 5;
-                        case 3 -> 9;
-                        default -> 3;
-                    };
-                } else duration = 3;
-
-                AtomicInteger ai = new AtomicInteger();
-                Bukkit.getAsyncScheduler().runAtFixedRate(this.getPlugin(), task -> {
-                    if (player.isGliding()) {
-                        player.setVelocity(player.getLocation().getDirection().normalize().multiply(this.elytra_speed + (ai.get() / 9D)));
-                        if (ai.incrementAndGet() >= duration) {
-                            task.cancel();
-                        }
-                        return;
-                    }
-                    task.cancel();
-                }, 50L, 200L, TimeUnit.MILLISECONDS);
+                Bukkit.getRegionScheduler().runDelayed(this.getPlugin(), player.getLocation(), t -> player.setCooldown(Material.FIREWORK_ROCKET, this.elytra_cooldown), 1L);
 
                 this.damageItem(player, chestplate, this.elytra_durability);
             }
@@ -102,8 +92,8 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
         if (meta == null) return;
 
         int duraLoss = defaultDuraLoss;
-        if (meta.hasEnchant(Enchantment.DURABILITY)) {
-            float lossChance = 100F / (is.getEnchantmentLevel(Enchantment.DURABILITY) + 1);
+        if (UNBREAKING != null && meta.hasEnchant(UNBREAKING)) {
+            float lossChance = 100F / (is.getEnchantmentLevel(UNBREAKING) + 1);
             for (int i = 0; i < defaultDuraLoss; i++) {
                 if (Math.random() * 100F < lossChance) {
                     duraLoss++;
@@ -120,17 +110,15 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
 
     @Override
     public void load() {
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
     }
 
     @Override
     public boolean loadConfig() {
         this.elytra_cooldown = this.getSection().getInt("elytra_boost.cooldown") * 20;
-        this.elytra_speed = this.getSection().getDouble("elytra_boost.speed_multiplier") * 1.5D;
         this.elytra_durability = this.getSection().getInt("elytra_boost.additional_durability_loss");
 
         this.trident_cooldown = this.getSection().getInt("trident_riptide.cooldown") * 20;
-        this.trident_speed = this.getSection().getDouble("trident_riptide.speed_multiplier") * 0.65D;
         this.trident_durability = this.getSection().getInt("trident_riptide.additional_durability_loss");
 
         return true;
@@ -141,4 +129,3 @@ public class AbilityLimiterModule extends AbstractModule implements Listener {
         HandlerList.unregisterAll(this);
     }
 }
-

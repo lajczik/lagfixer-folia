@@ -1,7 +1,11 @@
 package xyz.lychee.lagfixer.modules;
 
+import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
 import lombok.Getter;
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,15 +16,29 @@ import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.PlayerInventory;
 import xyz.lychee.lagfixer.LagFixer;
 import xyz.lychee.lagfixer.managers.ModuleManager;
+import xyz.lychee.lagfixer.managers.SupportManager;
 import xyz.lychee.lagfixer.objects.AbstractModule;
 import xyz.lychee.lagfixer.utils.ReflectionUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Getter
 public class VehicleMotionReducerModule extends AbstractModule implements Listener {
     private NMS vehicleMotionReducer;
     private boolean forceLoad;
+
     private boolean minecart;
+    private boolean minecart_collides;
+    private boolean minecart_pushable;
+    private boolean minecart_silent;
+
     private boolean boat;
+    private boolean boat_collides;
+    private boolean boat_pushable;
+    private boolean boat_silent;
 
     public VehicleMotionReducerModule(LagFixer plugin, ModuleManager manager) {
         super(plugin, manager, Impact.LOW, "VehicleMotionReducer",
@@ -37,7 +55,7 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
     public void onEntityPlace(EntityPlaceEvent event) {
         Entity entity = event.getEntity();
         if (this.canContinue(entity.getWorld()) && entity instanceof Vehicle vehicle) {
-            boolean cancel = this.vehicleMotionReducer.optimizeVehicle(vehicle);
+            boolean cancel = this.vehicleMotionReducer.optimize(vehicle);
 
             if (cancel) {
                 event.setCancelled(true);
@@ -63,9 +81,7 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
         if (this.canContinue(e.getWorld())) return;
 
         for (Entity ent : e.getEntities()) {
-            if (this.isEnabled(ent)) {
-                this.vehicleMotionReducer.optimizeVehicle(ent);
-            }
+            this.vehicleMotionReducer.optimize(ent);
         }
     }
 
@@ -75,15 +91,49 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
 
     @Override
     public void load() {
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
+
+        if (this.forceLoad) {
+            RegionScheduler scheduler = Bukkit.getServer().getRegionScheduler();
+            this.getAllowedWorlds().forEach(world -> {
+                Map<SupportManager.RegionPos, List<Chunk>> regions = SupportManager.createRegionMap(world);
+                regions.forEach((regionPos, chunks) -> {
+                    Executor executor = task -> scheduler.execute(this.getPlugin(), world, regionPos.getX() << 3, regionPos.getZ() << 3, task);
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        for (Chunk chunk : chunks) {
+                            Entity[] entities = chunk.getEntities();
+                            for (Entity entity : entities) {
+                                if (this.isEnabled(entity)) {
+                                    this.vehicleMotionReducer.optimize(entity);
+                                }
+                            }
+                        }
+                    }, executor);
+                });
+            });
+        }
     }
 
     @Override
     public boolean loadConfig() {
         this.vehicleMotionReducer = ReflectionUtils.createInstance("VehicleMotionReducer", this);
+
         this.forceLoad = this.getSection().getBoolean("force_load");
+
         this.minecart = this.getSection().getBoolean("minecart.enabled");
+        if (this.minecart) {
+            this.minecart_collides = this.getSection().getBoolean("minecart.collides");
+            this.minecart_pushable = this.getSection().getBoolean("minecart.pushable");
+            this.minecart_silent = this.getSection().getBoolean("minecart.silent");
+        }
+
         this.boat = this.getSection().getBoolean("boat.enabled");
+        if (this.boat) {
+            this.boat_collides = this.getSection().getBoolean("boat.collides");
+            this.boat_pushable = this.getSection().getBoolean("boat.pushable");
+            this.boat_silent = this.getSection().getBoolean("boat.silent");
+        }
+
         return this.vehicleMotionReducer != null;
     }
 
@@ -100,7 +150,7 @@ public class VehicleMotionReducerModule extends AbstractModule implements Listen
             this.module = module;
         }
 
-        public abstract boolean optimizeVehicle(Entity vehicle);
+        public abstract boolean optimize(Entity vehicle);
     }
 }
 

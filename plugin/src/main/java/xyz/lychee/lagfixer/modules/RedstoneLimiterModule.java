@@ -115,7 +115,7 @@ public class RedstoneLimiterModule extends AbstractModule implements Listener {
             this.redstone_map.values().forEach(counter -> counter.complete(this.ticks_redsone, this.break_redstone));
             this.piston_map.values().forEach(counter -> counter.complete(this.ticks_piston, this.break_piston));
         }, 1L, 2L, TimeUnit.SECONDS);
-        this.getPlugin().getServer().getPluginManager().registerEvents(this, this.getPlugin());
+        Bukkit.getPluginManager().registerEvents(this, this.getPlugin());
     }
 
     @Override

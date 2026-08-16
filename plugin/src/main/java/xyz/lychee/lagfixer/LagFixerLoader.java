@@ -24,7 +24,7 @@ public class LagFixerLoader implements PluginLoader {
                 new Dependency(new DefaultArtifact("commons-io:commons-io:2.22.0"), null)
         );
         mavenResolver.addDependency(
-                new Dependency(new DefaultArtifact("com.github.oshi:oshi-core:7.3.1"), null)
+                new Dependency(new DefaultArtifact("com.github.oshi:oshi-core:7.4.4"), null)
         );
 
         classpathBuilder.addLibrary(mavenResolver);

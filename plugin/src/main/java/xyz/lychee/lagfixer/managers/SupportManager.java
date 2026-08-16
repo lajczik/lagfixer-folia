@@ -42,6 +42,7 @@ public class SupportManager extends AbstractManager {
 
         this.versions.put("1.20.5", "v1_20_R4");
         this.versions.put("1.20.6", "v1_20_R4");
+
         this.versions.put("1.21", "v1_21_R1");
         this.versions.put("1.21.1", "v1_21_R1");
         this.versions.put("1.21.2", "v1_21_R2");
@@ -56,13 +57,13 @@ public class SupportManager extends AbstractManager {
         this.versions.put("1.21.11", "v1_21_R7");
 
         this.versions.put("26.1", "v26_1");
-        this.versions.put("26.2", "v26_1");
-        this.versions.put("26.3", "v26_1");
-        this.versions.put("26.4", "v26_1");
-        this.versions.put("26.5", "v26_1");
-        this.versions.put("27.1", "v26_1");
-        this.versions.put("27.2", "v26_1");
-        this.versions.put("27.3", "v26_1");
+        this.versions.put("26.2", "v26_2");
+        this.versions.put("26.3", "v26_2");
+        this.versions.put("26.4", "v26_2");
+        this.versions.put("26.5", "v26_2");
+        this.versions.put("27.1", "v26_2");
+        this.versions.put("27.2", "v26_2");
+        this.versions.put("27.3", "v26_2");
     }
 
     @Override

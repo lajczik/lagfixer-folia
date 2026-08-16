@@ -48,7 +48,7 @@ public class MessageUtils {
 
     private static String applyPapi(@Nullable CommandSender sender, String text) {
         if (sender instanceof Player) {
-            PlaceholderAPIHook papi = HookManager.getInstance().getHook(PlaceholderAPIHook.class);
+            PlaceholderAPIHook papi = HookManager.getInstance().getHookIfLoaded(PlaceholderAPIHook.class);
             if (papi != null) {
                 return papi.applyPlaceholders((Player) sender, text);
             }
